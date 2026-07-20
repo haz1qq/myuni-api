@@ -50,6 +50,11 @@ Base path: `/api`
 
 Full interactive documentation (OpenAPI/Swagger) is served at `/docs`.
 
+Every path also accepts an optional trailing `.json`, e.g. `/api/universities.json` or
+`/api/campuses/uitm-shah-alam.json` — purely cosmetic, it returns the exact same response as the
+plain path (including query params like `?category=IPTA`). Unlike a static file host, this is
+still the live, filterable API — the `.json` suffix is just a readability convenience.
+
 ## Data model
 
 Each university lives in its own file under `data/universities/<id>.json`:
@@ -60,7 +65,6 @@ Each university lives in its own file under `data/universities/<id>.json`:
   "name": "Universiti Teknologi MARA",
   "short_name": "UiTM",
   "category": "IPTA",
-  "type": "Comprehensive",
   "website": "https://www.uitm.edu.my",
   "established": 1956,
   "student_range": "170000+"

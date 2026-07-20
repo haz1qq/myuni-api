@@ -56,3 +56,29 @@ describe('GET /api/universities/:id', () => {
     expect(res.body.error.message).toMatch(/not found/i);
   });
 });
+
+describe('.json suffix', () => {
+  it('is an alternative to the plain list path', async () => {
+    const [plain, jsonSuffixed] = await Promise.all([
+      request(app).get('/api/universities'),
+      request(app).get('/api/universities.json'),
+    ]);
+
+    expect(jsonSuffixed.status).toBe(200);
+    expect(jsonSuffixed.body).toEqual(plain.body);
+  });
+
+  it('is an alternative to the plain detail path, and still honours query params', async () => {
+    const res = await request(app).get('/api/universities.json').query({ category: 'IPTS' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.every((u: { category: string }) => u.category === 'IPTS')).toBe(true);
+  });
+
+  it('works on the :id route', async () => {
+    const res = await request(app).get('/api/universities/uitm.json');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.id).toBe('uitm');
+  });
+});

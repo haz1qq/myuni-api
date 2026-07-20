@@ -21,6 +21,14 @@ export function createApp(): Express {
   });
 
   app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+  app.use('/api', (req, _res, next) => {
+    const [pathPart, queryPart] = req.url.split('?');
+    if (pathPart?.endsWith('.json')) {
+      req.url = pathPart.slice(0, -'.json'.length) + (queryPart ? `?${queryPart}` : '');
+    }
+    next();
+  });
   app.use('/api', apiRouter);
 
   app.use(notFoundHandler);

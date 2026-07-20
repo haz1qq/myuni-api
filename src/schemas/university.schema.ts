@@ -11,7 +11,6 @@ export const universitySchema = z.object({
   name: z.string().min(1),
   short_name: z.string().min(1),
   category: universityCategorySchema,
-  type: z.string().min(1),
   website: z.string().url(),
   established: z
     .number()

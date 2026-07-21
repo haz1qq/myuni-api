@@ -55,6 +55,35 @@ Every path also accepts an optional trailing `.json`, e.g. `/api/universities.js
 plain path (including query params like `?category=IPTA`). Unlike a static file host, this is
 still the live, filterable API — the `.json` suffix is just a readability convenience.
 
+## Usage
+
+The API is public, unauthenticated, and CORS-enabled — call it directly from a browser, mobile
+app, bot, or backend of your own. No API key required.
+
+```bash
+# List universities, optionally filtered
+curl "https://your-domain.vercel.app/api/universities?category=IPTA"
+
+# Get one university (its campuses come embedded in the response)
+curl "https://your-domain.vercel.app/api/universities/uum"
+
+# List campuses, optionally filtered
+curl "https://your-domain.vercel.app/api/campuses?university_id=uum&state=Kedah"
+
+# Get one campus
+curl "https://your-domain.vercel.app/api/campuses/uum-sintok"
+```
+
+From JavaScript:
+
+```js
+const res = await fetch('https://your-domain.vercel.app/api/universities?category=IPTA');
+const { data } = await res.json();
+```
+
+Full endpoint reference, query parameters, and response schemas are in the interactive docs at
+`/docs`.
+
 ## Data model
 
 Each university lives in its own file under `data/universities/<id>.json`:

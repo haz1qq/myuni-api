@@ -7,11 +7,9 @@ import { apiRouter } from './routes/index.js';
 import { swaggerSpec } from './docs/swagger.js';
 import { notFoundHandler } from './middleware/not-found.js';
 import { errorHandler } from './middleware/error-handler.js';
+import { renderLanding } from './controllers/landing.controller.js';
 
-// helmet's package.json "exports" map has no per-condition "types" entry, which makes its
-// default export's inferred type resolve inconsistently across npm installs (works on some
-// hosts, resolves to the whole module namespace — "has no call signatures" — on others). Cast
-// through `unknown` to a signature we own so the checker never has to resolve helmet's own type.
+
 type HelmetFactory = (options?: Record<string, unknown>) => RequestHandler;
 const helmet = helmetImport as unknown as HelmetFactory;
 
@@ -26,6 +24,8 @@ export function createApp(): Express {
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
   });
+
+  app.get('/', renderLanding);
 
   app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 

@@ -14,7 +14,7 @@ function escapeHtml(value: string): string {
 }
 
 function renderCampusRow(campus: Campus): string {
-  const endpoint = `/api/campuses/${campus.id}`;
+  const endpoint = `/api/campus/${campus.id}`;
   return `
               <tr>
                 <td>
@@ -27,7 +27,7 @@ function renderCampusRow(campus: Campus): string {
 }
 
 function renderUniversityCard(university: University, campuses: Campus[]): string {
-  const universityEndpoint = `/api/universities/${university.id}`;
+  const universityEndpoint = `/api/university/${university.id}`;
   const categoryClass = university.category === 'IPTA' ? 'badge-ipta' : 'badge-ipts';
   const campusRows = campuses.map(renderCampusRow).join('');
   const campusSection =
@@ -350,8 +350,8 @@ export function renderLanding(_req: Request, res: Response): void {
       <p class="links">
         <a class="primary" href="/docs">API docs</a>
         <a href="/health">Health check</a>
-        <a href="/api/universities"><code>/api/universities</code></a>
-        <a href="/api/campuses"><code>/api/campuses</code></a>
+        <a href="/api/university"><code>/api/university</code></a>
+        <a href="/api/campus"><code>/api/campus</code></a>
       </p>
       <div class="stats">
         <div class="stat">

@@ -5,8 +5,8 @@ import { universitySchema, type University } from '../schemas/university.schema.
 import { campusSchema, type Campus } from '../schemas/campus.schema.js';
 
 const DATA_DIR = path.resolve(process.cwd(), 'data');
-const UNIVERSITIES_DIR = path.join(DATA_DIR, 'universities');
-const CAMPUSES_DIR = path.join(DATA_DIR, 'campuses');
+const UNIVERSITIES_DIR = path.join(DATA_DIR, 'university');
+const CAMPUSES_DIR = path.join(DATA_DIR, 'campus');
 
 export class DataIntegrityError extends Error {
   constructor(problems: string[]) {

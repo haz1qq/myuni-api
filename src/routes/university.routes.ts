@@ -5,7 +5,7 @@ export const universityRouter = Router();
 
 /**
  * @openapi
- * /universities:
+ * /university:
  *   get:
  *     summary: List universities
  *     tags: [Universities]
@@ -32,7 +32,7 @@ universityRouter.get('/', listUniversities);
 
 /**
  * @openapi
- * /universities/{id}:
+ * /university/{id}:
  *   get:
  *     summary: Get a university by id, including its campuses
  *     tags: [Universities]

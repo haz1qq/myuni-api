@@ -4,5 +4,5 @@ import { campusRouter } from './campus.routes.js';
 
 export const apiRouter = Router();
 
-apiRouter.use('/universities', universityRouter);
-apiRouter.use('/campuses', campusRouter);
+apiRouter.use('/university', universityRouter);
+apiRouter.use('/campus', campusRouter);

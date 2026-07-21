@@ -4,9 +4,9 @@ import { createApp } from '../src/app.js';
 
 const app = createApp();
 
-describe('GET /api/universities', () => {
+describe('GET /api/university', () => {
   it('returns a paginated list of universities', async () => {
-    const res = await request(app).get('/api/universities');
+    const res = await request(app).get('/api/university');
 
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.data)).toBe(true);
@@ -15,14 +15,14 @@ describe('GET /api/universities', () => {
   });
 
   it('filters by category', async () => {
-    const res = await request(app).get('/api/universities').query({ category: 'IPTS' });
+    const res = await request(app).get('/api/university').query({ category: 'IPTS' });
 
     expect(res.status).toBe(200);
     expect(res.body.data.every((u: { category: string }) => u.category === 'IPTS')).toBe(true);
   });
 
   it('filters by search term, case-insensitively', async () => {
-    const res = await request(app).get('/api/universities').query({ search: 'teknologi mara' });
+    const res = await request(app).get('/api/university').query({ search: 'teknologi mara' });
 
     expect(res.status).toBe(200);
     expect(res.body.data).toHaveLength(1);
@@ -30,16 +30,16 @@ describe('GET /api/universities', () => {
   });
 
   it('rejects an invalid category', async () => {
-    const res = await request(app).get('/api/universities').query({ category: 'nope' });
+    const res = await request(app).get('/api/university').query({ category: 'nope' });
 
     expect(res.status).toBe(400);
     expect(res.body.error.message).toBe('Invalid request');
   });
 });
 
-describe('GET /api/universities/:id', () => {
+describe('GET /api/university/:id', () => {
   it('returns a university with its embedded campuses', async () => {
-    const res = await request(app).get('/api/universities/uitm');
+    const res = await request(app).get('/api/university/uitm');
 
     expect(res.status).toBe(200);
     expect(res.body.data.id).toBe('uitm');
@@ -50,7 +50,7 @@ describe('GET /api/universities/:id', () => {
   });
 
   it('returns 404 for an unknown id', async () => {
-    const res = await request(app).get('/api/universities/does-not-exist');
+    const res = await request(app).get('/api/university/does-not-exist');
 
     expect(res.status).toBe(404);
     expect(res.body.error.message).toMatch(/not found/i);
@@ -60,8 +60,8 @@ describe('GET /api/universities/:id', () => {
 describe('.json suffix', () => {
   it('is an alternative to the plain list path', async () => {
     const [plain, jsonSuffixed] = await Promise.all([
-      request(app).get('/api/universities'),
-      request(app).get('/api/universities.json'),
+      request(app).get('/api/university'),
+      request(app).get('/api/university.json'),
     ]);
 
     expect(jsonSuffixed.status).toBe(200);
@@ -69,14 +69,14 @@ describe('.json suffix', () => {
   });
 
   it('is an alternative to the plain detail path, and still honours query params', async () => {
-    const res = await request(app).get('/api/universities.json').query({ category: 'IPTS' });
+    const res = await request(app).get('/api/university.json').query({ category: 'IPTS' });
 
     expect(res.status).toBe(200);
     expect(res.body.data.every((u: { category: string }) => u.category === 'IPTS')).toBe(true);
   });
 
   it('works on the :id route', async () => {
-    const res = await request(app).get('/api/universities/uitm.json');
+    const res = await request(app).get('/api/university/uitm.json');
 
     expect(res.status).toBe(200);
     expect(res.body.data.id).toBe('uitm');

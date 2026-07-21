@@ -8,7 +8,7 @@ institutions, and their campuses.
 - **Runtime:** Node.js (LTS)
 - **Framework:** Express.js
 - **Language:** TypeScript
-- **Data source:** JSON files (`data/universities/*.json`, `data/campuses/*.json`)
+- **Data source:** JSON files (`data/university/*.json`, `data/campus/*.json`)
 - **Validation:** Zod
 - **API docs:** Swagger / OpenAPI
 - **Testing:** Vitest + Supertest
@@ -42,16 +42,16 @@ Base path: `/api`
 
 | Method | Path                     | Description                                     |
 | ------ | ------------------------ | ------------------------------------------------ |
-| GET    | `/universities`          | List universities. Filters: `category` (`IPTA`\|`IPTS`), `search`. Paginated: `page`, `limit`. |
-| GET    | `/universities/:id`      | Get one university, with its campuses embedded.   |
-| GET    | `/campuses`              | List campuses. Filters: `state`, `university_id`. Paginated: `page`, `limit`. |
-| GET    | `/campuses/:id`          | Get one campus.                                   |
+| GET    | `/university`            | List universities. Filters: `category` (`IPTA`\|`IPTS`), `search`. Paginated: `page`, `limit`. |
+| GET    | `/university/:id`        | Get one university, with its campuses embedded.   |
+| GET    | `/campus`                | List campuses. Filters: `state`, `university_id`. Paginated: `page`, `limit`. |
+| GET    | `/campus/:id`            | Get one campus.                                   |
 | GET    | `/health`                | Health check.                                     |
 
 Full interactive documentation (OpenAPI/Swagger) is served at `/docs`.
 
-Every path also accepts an optional trailing `.json`, e.g. `/api/universities.json` or
-`/api/campuses/uitm-shah-alam.json` — purely cosmetic, it returns the exact same response as the
+Every path also accepts an optional trailing `.json`, e.g. `/api/university.json` or
+`/api/campus/uitm-shah-alam.json` — purely cosmetic, it returns the exact same response as the
 plain path (including query params like `?category=IPTA`). Unlike a static file host, this is
 still the live, filterable API — the `.json` suffix is just a readability convenience.
 
@@ -62,22 +62,22 @@ app, bot, or backend of your own. No API key required.
 
 ```bash
 # List universities, optionally filtered
-curl "https://your-domain.vercel.app/api/universities?category=IPTA"
+curl "https://your-domain.vercel.app/api/university?category=IPTA"
 
 # Get one university (its campuses come embedded in the response)
-curl "https://your-domain.vercel.app/api/universities/uum"
+curl "https://your-domain.vercel.app/api/university/uum"
 
 # List campuses, optionally filtered
-curl "https://your-domain.vercel.app/api/campuses?university_id=uum&state=Kedah"
+curl "https://your-domain.vercel.app/api/campus?university_id=uum&state=Kedah"
 
 # Get one campus
-curl "https://your-domain.vercel.app/api/campuses/uum-sintok"
+curl "https://your-domain.vercel.app/api/campus/uum-sintok"
 ```
 
 From JavaScript:
 
 ```js
-const res = await fetch('https://your-domain.vercel.app/api/universities?category=IPTA');
+const res = await fetch('https://your-domain.vercel.app/api/university?category=IPTA');
 const { data } = await res.json();
 ```
 
@@ -86,7 +86,7 @@ Full endpoint reference, query parameters, and response schemas are in the inter
 
 ## Data model
 
-Each university lives in its own file under `data/universities/<id>.json`:
+Each university lives in its own file under `data/university/<id>.json`:
 
 ```json
 {
@@ -100,7 +100,7 @@ Each university lives in its own file under `data/universities/<id>.json`:
 }
 ```
 
-Each campus lives in its own file under `data/campuses/<id>.json`, and references its parent
+Each campus lives in its own file under `data/campus/<id>.json`, and references its parent
 university by `university_id`:
 
 ```json
@@ -123,7 +123,7 @@ malformed, has a duplicate `id`, or a campus references a `university_id` that d
 
 ## Contributing data
 
-1. Add a new `<id>.json` file to `data/universities/` (or `data/campuses/`) following the shape
+1. Add a new `<id>.json` file to `data/university/` (or `data/campus/`) following the shape
    above. `id` must be lowercase kebab-case.
 2. Run `npm run dev` — the server validates your file on boot and tells you exactly what's wrong
    if anything fails.

@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "api/index.ts": {
+      "includeFiles": "{data/**,src/routes/**}"
+    }
+  },
+  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
+}

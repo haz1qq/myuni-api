@@ -4,6 +4,7 @@
   "short_name": "UM",
   "category": "IPTA",
   "website": "https://www.um.edu.my",
+  "logo": "/logos/um.png",
   "established": 1949,
   "student_range": "25000+"
 }

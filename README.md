@@ -95,10 +95,16 @@ Each university lives in its own file under `data/university/<id>.json`:
   "short_name": "UiTM",
   "category": "IPTA",
   "website": "https://www.uitm.edu.my",
+  "logo": "/logos/uitm.png",
   "established": 1956,
   "student_range": "170000+"
 }
 ```
+
+`logo` is optional and points to an image in `public/logos/` (served at `/logos/<id>.png`); drop
+the image file there with the university's `id` as its filename. Any of png/svg/webp/jpg works —
+after adding files, run `npx tsx scripts/sync-logos.ts` to point every `logo` field at the file
+that actually exists.
 
 Each campus lives in its own file under `data/campus/<id>.json`, and references its parent
 university by `university_id`:
@@ -120,6 +126,14 @@ university by `university_id`:
 Both are validated against Zod schemas (`src/schemas/university.schema.ts`,
 `src/schemas/campus.schema.ts`) on server startup — the server refuses to start if any file is
 malformed, has a duplicate `id`, or a campus references a `university_id` that doesn't exist.
+
+### A note on data accuracy
+
+This data is compiled from a mix of public sources — official university websites,
+Wikipedia, and the Ministry of Higher Education (KPT) — and it isn't guaranteed to be complete or
+100% accurate. Universities restructure campuses, rename faculties, and update figures like
+student counts more often than any volunteer-maintained dataset can track. If you spot something
+wrong or outdated, corrections via pull request are very welcome — see below.
 
 ## Contributing data
 

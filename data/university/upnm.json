@@ -4,6 +4,7 @@
   "short_name": "UPNM",
   "category": "IPTA",
   "website": "https://www.upnm.edu.my/",
+  "logo": "/logos/upnm.png",
   "established": 2006,
   "student_range": "2700+"
 }

@@ -4,6 +4,7 @@
   "short_name": "TU",
   "category": "IPTS",
   "website": "https://university.taylors.edu.my/",
+  "logo": "/logos/taylor.png",
   "established": 2006,
   "student_range": "10000+"
 }

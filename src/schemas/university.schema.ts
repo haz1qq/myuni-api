@@ -18,7 +18,13 @@ export const universitySchema = z.object({
     .gte(1900)
     .lte(new Date().getFullYear()),
   student_range: z.string().min(1),
-  logo_url: z.string().url().optional(),
+  logo: z
+    .string()
+    .regex(
+      /^\/logos\/[a-z0-9]+(-[a-z0-9]+)*\.(png|svg|webp|jpe?g)$/,
+      'logo must be a path like "/logos/uitm.png" (file lives in public/logos/)',
+    )
+    .optional(),
   description: z.string().optional(),
 });
 

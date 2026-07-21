@@ -4,6 +4,7 @@
   "short_name": "UPSI",
   "category": "IPTA",
   "website": "https://www.upsi.edu.my/",
+  "logo": "/logos/upsi.png",
   "established": 1997,
   "student_range": "25000+"
 }

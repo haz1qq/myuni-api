@@ -4,6 +4,7 @@
   "short_name": "UTHM",
   "category": "IPTA",
   "website": "http://www.uthm.edu.my",
+  "logo": "/logos/uthm.png",
   "established": 1993,
   "student_range": "22000+"
 }

@@ -4,6 +4,7 @@
   "short_name": "UNIMAS",
   "category": "IPTA",
   "website": "http://www.unimas.myy",
+  "logo": "/logos/unimas.png",
   "established": 1992,
   "student_range": "19000+"
 }

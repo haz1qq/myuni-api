@@ -7,7 +7,7 @@ import { apiRouter } from './routes/index.js';
 import { swaggerSpec } from './docs/swagger.js';
 import { notFoundHandler } from './middleware/not-found.js';
 import { errorHandler } from './middleware/error-handler.js';
-import { renderLanding } from './controllers/landing.controller.js';
+import { renderLanding, serveLandingScript } from './controllers/landing.controller.js';
 
 
 type HelmetFactory = (options?: Record<string, unknown>) => RequestHandler;
@@ -20,12 +20,14 @@ export function createApp(): Express {
   app.use(cors());
   app.use(morgan('dev', { skip: () => process.env.NODE_ENV === 'test' }));
   app.use(express.json());
+  app.use(express.static('public'));
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
   });
 
   app.get('/', renderLanding);
+  app.get('/landing.js', serveLandingScript);
 
   app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 

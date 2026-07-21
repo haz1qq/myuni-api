@@ -1,4 +1,6 @@
 {
+  "framework": null,
+  "outputDirectory": "public",
   "functions": {
     "api/index.ts": {
       "includeFiles": "{data/**,src/routes/**}"

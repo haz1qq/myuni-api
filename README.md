@@ -62,22 +62,22 @@ app, bot, or backend of your own. No API key required.
 
 ```bash
 # List universities, optionally filtered
-curl "https://your-domain.vercel.app/api/university?category=IPTA"
+curl "https://www.myuni-api.my/api/university?category=IPTA"
 
 # Get one university (its campuses come embedded in the response)
-curl "https://your-domain.vercel.app/api/university/uum"
+curl "https://www.myuni-api.my/api/university/uum"
 
 # List campuses, optionally filtered
-curl "https://your-domain.vercel.app/api/campus?university_id=uum&state=Kedah"
+curl "https://www.myuni-api.my/api/campus?university_id=uum&state=Kedah"
 
 # Get one campus
-curl "https://your-domain.vercel.app/api/campus/uum-sintok"
+curl "https://www.myuni-api.my/api/campus/uum-sintok"
 ```
 
 From JavaScript:
 
 ```js
-const res = await fetch('https://your-domain.vercel.app/api/university?category=IPTA');
+const res = await fetch('https://www.myuni-api.my/api/university?category=IPTA');
 const { data } = await res.json();
 ```
 

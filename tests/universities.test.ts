@@ -29,8 +29,32 @@ describe('GET /api/university', () => {
     expect(res.body.data[0].id).toBe('uitm');
   });
 
+  it('filters by state, matching universities with at least one campus there', async () => {
+    const res = await request(app).get('/api/university').query({ state: 'Kedah' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.some((u: { id: string }) => u.id === 'uum')).toBe(true);
+  });
+
+  it('combines state and category filters', async () => {
+    const res = await request(app).get('/api/university').query({ state: 'Kedah', category: 'IPTA' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.length).toBeGreaterThan(0);
+    expect(
+      res.body.data.every((u: { category: string }) => u.category === 'IPTA'),
+    ).toBe(true);
+  });
+
   it('rejects an invalid category', async () => {
     const res = await request(app).get('/api/university').query({ category: 'nope' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toBe('Invalid request');
+  });
+
+  it('rejects an invalid state', async () => {
+    const res = await request(app).get('/api/university').query({ state: 'Atlantis' });
 
     expect(res.status).toBe(400);
     expect(res.body.error.message).toBe('Invalid request');

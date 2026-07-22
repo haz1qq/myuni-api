@@ -1,7 +1,8 @@
 # myuni-api
 
-An open-source REST API for Malaysian university data — public (IPTA) and private (IPTS)
-institutions, and their campuses.
+An open-source REST API for Malaysian higher-education data — public universities (IPTA), private
+universities and colleges (IPTS), polytechnics, community colleges, and MARA colleges — along with
+their campuses. Includes a searchable, map-based landing page.
 
 ## Tech stack
 
@@ -22,7 +23,8 @@ cp .env.example .env
 npm run dev
 ```
 
-The API runs at `http://localhost:3000`, interactive docs at `http://localhost:3000/docs`.
+The API runs at `http://localhost:3000` — a searchable landing page with a state-by-state map is
+served at `/`, and interactive API docs (Swagger) at `/docs`.
 
 ## Scripts
 
@@ -35,6 +37,7 @@ The API runs at `http://localhost:3000`, interactive docs at `http://localhost:3
 | `npm run test:watch`  | Run tests in watch mode                   |
 | `npm run lint`        | Lint the codebase                         |
 | `npm run typecheck`   | Type-check without emitting               |
+| `npm run validate`    | Validate `data/` against the schemas (same check the server runs on boot) |
 
 ## API
 
@@ -42,7 +45,7 @@ Base path: `/api`
 
 | Method | Path                     | Description                                     |
 | ------ | ------------------------ | ------------------------------------------------ |
-| GET    | `/university`            | List universities. Filters: `category` (`IPTA`\|`IPTS`), `search`. Paginated: `page`, `limit`. |
+| GET    | `/university`            | List universities. Filters: `category` (`IPTA`\|`IPTS`\|`Polytechnic`\|`Community College`\|`MARA College`), `state` (matches universities with at least one campus there), `search`. Paginated: `page`, `limit`. |
 | GET    | `/university/:id`        | Get one university, with its campuses embedded.   |
 | GET    | `/campus`                | List campuses. Filters: `state`, `university_id`. Paginated: `page`, `limit`. |
 | GET    | `/campus/:id`            | Get one campus.                                   |
@@ -63,6 +66,9 @@ app, bot, or backend of your own. No API key required.
 ```bash
 # List universities, optionally filtered
 curl "https://www.myuni-api.my/api/university?category=IPTA"
+
+# Filters can be combined -- e.g. IPTA universities with a campus in Kedah
+curl "https://www.myuni-api.my/api/university?category=IPTA&state=Kedah"
 
 # Get one university (its campuses come embedded in the response)
 curl "https://www.myuni-api.my/api/university/uum"
@@ -101,6 +107,9 @@ Each university lives in its own file under `data/university/<id>.json`:
 }
 ```
 
+`website`, `established`, and `student_range` are nullable — set to `null` rather than guessed
+when the value isn't known.
+
 `logo` is optional and points to an image in `public/logos/` (served at `/logos/<id>.png`); drop
 the image file there with the university's `id` as its filename. Any of png/svg/webp/jpg works —
 after adding files, run `npx tsx scripts/sync-logos.ts` to point every `logo` field at the file
@@ -129,19 +138,28 @@ malformed, has a duplicate `id`, or a campus references a `university_id` that d
 
 ### A note on data accuracy
 
-This data is compiled from a mix of public sources — official university websites,
-Wikipedia, and the Ministry of Higher Education (KPT) — and it isn't guaranteed to be complete or
-100% accurate. Universities restructure campuses, rename faculties, and update figures like
-student counts more often than any volunteer-maintained dataset can track. If you spot something
-wrong or outdated, corrections via pull request are very welcome — see below.
+The private-institution list is seeded from MQA's Malaysian Qualifications Register (MQR), the
+government registry of accredited providers, cross-checked against official university websites
+and the Ministry of Higher Education (KPT). Fields like `established` and `student_range` were
+filled in with AI-assisted web lookups where a reliable public source existed — where nothing
+reliable turned up, the field was left `null` rather than guessed (see
+[Data model](#data-model) above).
 
-## Contributing data
+Addresses and coordinates are being migrated to OpenStreetMap data for licensing reasons — some
+campuses have already moved over, and the rest still carry their originally-geocoded values
+pending further migration.
 
-1. Add a new `<id>.json` file to `data/university/` (or `data/campus/`) following the shape
-   above. `id` must be lowercase kebab-case.
-2. Run `npm run dev` — the server validates your file on boot and tells you exactly what's wrong
-   if anything fails.
-3. Run `npm test` and open a pull request.
+None of this is guaranteed to be complete or 100% accurate. Universities restructure campuses,
+rename faculties, and update figures like student counts more often than any volunteer-maintained
+dataset can track. If you spot something wrong or outdated, corrections via pull request are very
+welcome — see below.
+
+## Contributing
+
+Most contributions are data fixes — a missing field, a wrong address, a new institution — and
+don't require writing any code or holding an API key. See [CONTRIBUTING.md](./CONTRIBUTING.md)
+for the full guide, including the field reference and the `npm run validate` script that checks
+your changes before you open a PR.
 
 ## License
 

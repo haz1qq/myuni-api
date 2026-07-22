@@ -2,7 +2,13 @@ import { z } from 'zod';
 
 const idPattern = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
-export const universityCategorySchema = z.enum(['IPTA', 'IPTS']);
+export const universityCategorySchema = z.enum([
+  'IPTA',
+  'IPTS',
+  'Polytechnic',
+  'Community College',
+  'MARA College',
+]);
 
 export const universitySchema = z.object({
   id: z
@@ -11,13 +17,14 @@ export const universitySchema = z.object({
   name: z.string().min(1),
   short_name: z.string().min(1),
   category: universityCategorySchema,
-  website: z.string().url(),
+  website: z.string().url().nullable(),
   established: z
     .number()
     .int()
     .gte(1900)
-    .lte(new Date().getFullYear()),
-  student_range: z.string().min(1),
+    .lte(new Date().getFullYear())
+    .nullable(),
+  student_range: z.string().min(1).nullable(),
   logo: z
     .string()
     .regex(

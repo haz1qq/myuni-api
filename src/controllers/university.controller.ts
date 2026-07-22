@@ -6,7 +6,11 @@ import { ApiError } from '../utils/api-error.js';
 
 export function listUniversities(req: Request, res: Response): void {
   const query = universityQuerySchema.parse(req.query);
-  const universities = findUniversities({ category: query.category, search: query.search });
+  const universities = findUniversities({
+    category: query.category,
+    state: query.state,
+    search: query.search,
+  });
   const result = paginate(universities, query.page, query.limit);
   res.json(result);
 }

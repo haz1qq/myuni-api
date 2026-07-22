@@ -12,8 +12,12 @@ export const universityRouter = Router();
  *     parameters:
  *       - in: query
  *         name: category
- *         schema: { type: string, enum: [IPTA, IPTS] }
- *         description: Filter by public (IPTA) or private (IPTS) category
+ *         schema: { type: string, enum: [IPTA, IPTS, Polytechnic, Community College, MARA College] }
+ *         description: Filter by institution category
+ *       - in: query
+ *         name: state
+ *         schema: { type: string }
+ *         description: Filter to universities with at least one campus in this Malaysian state
  *       - in: query
  *         name: search
  *         schema: { type: string }

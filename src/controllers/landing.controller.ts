@@ -2,7 +2,6 @@ import type { Request, Response } from 'express';
 import { findUniversities } from '../services/university.service.js';
 import { findCampuses } from '../services/campus.service.js';
 import type { Campus } from '../schemas/campus.schema.js';
-import type { University } from '../schemas/university.schema.js';
 import { MALAYSIAN_STATES, type MalaysianState } from '../schemas/common.schema.js';
 import { MAP_VIEWBOX, STATE_PATHS, projectToMap } from '../utils/malaysia-map.js';
 
@@ -15,6 +14,36 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
+// Fixed display order; only categories actually present in the data get a
+// filter button/color, so this stays correct as new categories (e.g.
+// Polytechnic, Community College) get real data in a future scrape.
+const CATEGORY_ORDER = ['IPTA', 'IPTS', 'Polytechnic', 'Community College', 'MARA College'];
+
+// Malaysia is 13 states + 3 Federal Territories (Kuala Lumpur, Labuan,
+// Putrajaya) = 16 divisions total, not 14. The API's `state` field keeps the
+// existing "W.P. X" enum values (no breaking change to /api/campus?state=...
+// or the data files) -- this is a display-only label used in the landing
+// page UI so Federal Territories read correctly instead of being lumped in
+// as if they were ordinary states.
+const FEDERAL_TERRITORIES = new Set<MalaysianState>([
+  'W.P. Kuala Lumpur',
+  'W.P. Labuan',
+  'W.P. Putrajaya',
+]);
+
+function stateLabel(state: MalaysianState): string {
+  switch (state) {
+    case 'W.P. Kuala Lumpur':
+      return 'Federal Territory of Kuala Lumpur';
+    case 'W.P. Labuan':
+      return 'Federal Territory of Labuan';
+    case 'W.P. Putrajaya':
+      return 'Federal Territory of Putrajaya';
+    default:
+      return state;
+  }
+}
+
 /** Campus-count bin: 0 = no data, 1..4 = sequential ramp steps. */
 function binForCount(count: number): number {
   if (count === 0) return 0;
@@ -24,9 +53,9 @@ function binForCount(count: number): number {
   return 4;
 }
 
-interface StatePayload {
-  u: Array<{ id: string; name: string; short: string; cat: string; logo?: string }>;
-  c: Array<{ id: string; name: string; city: string; u: string }>;
+interface StateCounts {
+  u: number;
+  c: number;
 }
 
 export function renderLanding(_req: Request, res: Response): void {
@@ -40,36 +69,19 @@ export function renderLanding(_req: Request, res: Response): void {
     campusesByState.set(campus.state, list);
   }
 
-  const universityById = new Map<string, University>(universities.map((u) => [u.id, u]));
-
-  const stateData = {} as Record<MalaysianState, StatePayload>;
+  const stateCounts = {} as Record<MalaysianState, StateCounts>;
+  const stateLabels = {} as Record<MalaysianState, string>;
   for (const state of MALAYSIAN_STATES) {
-    const stateCampuses = (campusesByState.get(state) ?? [])
-      .slice()
-      .sort((a, b) => a.name.localeCompare(b.name));
-    const uniIds = [...new Set(stateCampuses.map((c) => c.university_id))];
-    const unis = uniIds
-      .map((id) => universityById.get(id))
-      .filter((u): u is University => u !== undefined)
-      .sort((a, b) => a.short_name.localeCompare(b.short_name));
-    stateData[state] = {
-      u: unis.map((u) => ({
-        id: u.id,
-        name: u.name,
-        short: u.short_name,
-        cat: u.category,
-        logo: u.logo,
-      })),
-      c: stateCampuses.map((c) => ({
-        id: c.id,
-        name: c.name,
-        city: c.city,
-        u: universityById.get(c.university_id)?.short_name ?? c.university_id,
-      })),
-    };
+    const stateCampuses = campusesByState.get(state) ?? [];
+    const uniIds = new Set(stateCampuses.map((c) => c.university_id));
+    stateCounts[state] = { u: uniIds.size, c: stateCampuses.length };
+    stateLabels[state] = stateLabel(state);
   }
 
-  const stateCount = new Set(campuses.map((campus) => campus.state)).size;
+  const coveredStates = new Set(campuses.map((campus) => campus.state));
+  const realStates = MALAYSIAN_STATES.filter((s) => !FEDERAL_TERRITORIES.has(s));
+  const statesCovered = realStates.filter((s) => coveredStates.has(s)).length;
+  const territoriesCovered = [...FEDERAL_TERRITORIES].filter((s) => coveredStates.has(s)).length;
 
   const statesByUniversity = new Map<string, Set<MalaysianState>>();
   const campusesByUniversity = new Map<string, Campus[]>();
@@ -97,26 +109,12 @@ export function renderLanding(_req: Request, res: Response): void {
         .map((c) => ({ id: c.id, name: c.name, city: c.city, state: c.state })),
     }));
 
-  const uniItems = directory
-    .map((u) => {
-      const logoImg = u.logo ? `<img src="${escapeHtml(u.logo)}" alt="" loading="lazy" />` : '';
-      const catClass = u.cat === 'IPTA' ? 'ipta' : 'ipts';
-      const searchText = `${u.short} ${u.name}`.toLowerCase();
-      return `
-          <button class="uni-item" type="button" data-id="${escapeHtml(u.id)}" data-cat="${escapeHtml(u.cat)}" data-q="${escapeHtml(searchText)}" title="${escapeHtml(u.name)}">
-            <span class="uni-logo">${logoImg}<span class="uni-monogram" aria-hidden="true">${escapeHtml(u.short.slice(0, 6))}</span></span>
-            <span class="uni-item-info">
-              <span class="uni-item-short">${escapeHtml(u.short)}<span class="uni-cat ${catClass}">${escapeHtml(u.cat)}</span></span>
-              <span class="uni-item-name">${escapeHtml(u.name)}</span>
-            </span>
-          </button>`;
-    })
-    .join('');
+  const presentCategories = CATEGORY_ORDER.filter((cat) => directory.some((u) => u.cat === cat));
 
   const statePathsMarkup = MALAYSIAN_STATES.map((state) => {
-    const payload = stateData[state];
-    const bin = binForCount(payload.c.length);
-    const label = `${state}: ${payload.u.length} universit${payload.u.length === 1 ? 'y' : 'ies'}, ${payload.c.length} campus${payload.c.length === 1 ? '' : 'es'}`;
+    const counts = stateCounts[state];
+    const bin = binForCount(counts.c);
+    const label = `${stateLabels[state]}: ${counts.u} universit${counts.u === 1 ? 'y' : 'ies'}, ${counts.c} campus${counts.c === 1 ? '' : 'es'}`;
     return `<path class="state" data-state="${escapeHtml(state)}" data-bin="${bin}" d="${STATE_PATHS[state]}" vector-effect="non-scaling-stroke" tabindex="0" role="button" aria-label="${escapeHtml(label)}" />`;
   }).join('\n        ');
 
@@ -127,7 +125,7 @@ export function renderLanding(_req: Request, res: Response): void {
     })
     .join('\n        ');
 
-  const payloadJson = JSON.stringify({ states: stateData, unis: directory }).replace(
+  const payloadJson = JSON.stringify({ stateCounts, stateLabels, unis: directory }).replace(
     /</g,
     '\\u003c',
   );
@@ -152,6 +150,12 @@ export function renderLanding(_req: Request, res: Response): void {
       --accent-soft: rgba(42, 120, 214, 0.1);
       --violet: #4a3aa7;
       --violet-soft: rgba(74, 58, 167, 0.1);
+      --teal: #1a8f6b;
+      --teal-soft: rgba(26, 143, 107, 0.1);
+      --gold: #a15207;
+      --gold-soft: rgba(161, 82, 7, 0.1);
+      --rose: #a13a4a;
+      --rose-soft: rgba(161, 58, 74, 0.1);
       --code-bg: rgba(42, 120, 214, 0.08);
       --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
       --map-none: #f0efec;
@@ -181,6 +185,12 @@ export function renderLanding(_req: Request, res: Response): void {
         --accent-soft: rgba(57, 135, 229, 0.16);
         --violet: #9085e9;
         --violet-soft: rgba(144, 133, 233, 0.16);
+        --teal: #2fbf94;
+        --teal-soft: rgba(47, 191, 148, 0.16);
+        --gold: #d98c2b;
+        --gold-soft: rgba(217, 140, 43, 0.16);
+        --rose: #e2637a;
+        --rose-soft: rgba(226, 99, 122, 0.16);
         --code-bg: rgba(57, 135, 229, 0.14);
         --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.4);
         --map-none: #2c2c2a;
@@ -239,100 +249,132 @@ export function renderLanding(_req: Request, res: Response): void {
     }
     .stat .label { color: var(--text-secondary); font-size: 0.85rem; display: block; }
     .stat .value { font-size: 1.7rem; font-weight: 600; display: block; }
-    .map-card {
+    .panel {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 14px;
-      padding: 1.25rem 1.25rem 0.9rem;
+      padding: 1.25rem 1.25rem;
       box-shadow: var(--shadow);
       margin-top: 1.25rem;
     }
-    .map-card h2 { margin: 0 0 0.15rem; font-size: 1.15rem; }
-    .map-card .map-sub { margin: 0 0 0.75rem; color: var(--text-secondary); font-size: 0.88rem; }
-    .map-layout {
-      display: grid;
-      grid-template-columns: minmax(230px, 270px) 1fr;
-      gap: 1rem;
-      align-items: stretch;
-    }
-    .uni-panel { position: relative; }
-    .uni-panel-inner {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-    }
-    @media (max-width: 800px) {
-      .map-layout { grid-template-columns: 1fr; }
-      .uni-panel-inner { position: static; }
-      .uni-list { max-height: 260px; flex: none; }
-    }
+    .panel h2 { margin: 0 0 0.15rem; font-size: 1.15rem; }
+    .panel .panel-sub { margin: 0 0 1rem; color: var(--text-secondary); font-size: 0.88rem; }
+    .search-hero .search-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
     #uni-search {
       font: inherit;
-      font-size: 0.85rem;
-      width: 100%;
+      font-size: 1rem;
+      flex: 1 1 240px;
+      min-width: 0;
       color: var(--text);
       background: var(--page);
       border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 0.4rem 0.9rem;
+      border-radius: 12px;
+      padding: 0.75rem 1.1rem;
       outline: none;
     }
     #uni-search:focus { border-color: var(--accent); }
     #uni-search::placeholder { color: var(--text-muted); }
+    #state-select {
+      font: inherit;
+      font-size: 0.95rem;
+      flex: 0 1 200px;
+      min-width: 0;
+      color: var(--text);
+      background: var(--page);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.75rem 0.9rem;
+      outline: none;
+      cursor: pointer;
+    }
+    #state-select:focus { border-color: var(--accent); }
     .uni-filter {
       display: flex;
       align-items: center;
-      gap: 0.3rem;
-      margin: 0.5rem 0 0.35rem;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin: 0.85rem 0 0;
     }
     .uni-filter button {
       font: inherit;
-      font-size: 0.75rem;
+      font-size: 0.8rem;
       font-weight: 600;
       color: var(--text-secondary);
       background: none;
       border: 1px solid var(--border);
       border-radius: 999px;
-      padding: 0.2rem 0.65rem;
+      padding: 0.3rem 0.8rem;
       cursor: pointer;
     }
     .uni-filter button:hover { border-color: var(--accent); color: var(--accent); }
     .uni-filter button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
     .uni-filter button.active[data-cat="IPTS"] { background: var(--violet); border-color: var(--violet); }
-    #uni-count { margin-left: auto; font-size: 0.73rem; color: var(--text-muted); white-space: nowrap; }
+    .uni-filter button.active[data-cat="Polytechnic"] { background: var(--teal); border-color: var(--teal); }
+    .uni-filter button.active[data-cat="Community College"] { background: var(--gold); border-color: var(--gold); }
+    .uni-filter button.active[data-cat="MARA College"] { background: var(--rose); border-color: var(--rose); }
+    .search-meta {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin: 0.9rem 0 0;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+    #state-filter-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 600;
+      border-radius: 999px;
+      padding: 0.2rem 0.3rem 0.2rem 0.7rem;
+    }
+    #state-filter-pill[hidden] {
+      display: none;
+    }
+    #state-filter-clear {
+      font: inherit;
+      width: 18px;
+      height: 18px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      border: none;
+      background: rgba(0, 0, 0, 0.12);
+      color: inherit;
+      cursor: pointer;
+    }
     .uni-list {
-      flex: 1;
-      min-height: 0;
-      overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 0.3rem;
-      padding: 0.15rem 0.35rem 0.15rem 0.15rem;
-      scrollbar-width: thin;
+      gap: 0.4rem;
     }
     .uni-item {
       font: inherit;
       display: flex;
       align-items: center;
-      gap: 0.6rem;
-      flex-shrink: 0;
+      gap: 0.75rem;
+      width: 100%;
+      min-width: 0;
       text-align: left;
       background: var(--page);
       border: 1px solid var(--border);
       border-radius: 10px;
-      padding: 0.4rem 0.55rem;
+      padding: 0.55rem 0.75rem;
       cursor: pointer;
       color: var(--text);
       transition: border-color 120ms ease, background 120ms ease;
     }
     .uni-item:hover, .uni-item:focus-visible { border-color: var(--accent); }
     .uni-item.active { border-color: var(--accent); background: var(--accent-soft); }
-    .uni-item[hidden] { display: none; }
     .uni-logo {
       position: relative;
-      width: 36px;
-      height: 36px;
+      width: 40px;
+      height: 40px;
       flex-shrink: 0;
       display: flex;
       align-items: center;
@@ -344,7 +386,7 @@ export function renderLanding(_req: Request, res: Response): void {
     }
     .uni-logo img { width: 100%; height: 100%; object-fit: contain; padding: 3px; }
     .uni-monogram {
-      font-size: 0.52rem;
+      font-size: 0.56rem;
       font-weight: 700;
       letter-spacing: 0.02em;
       color: var(--accent);
@@ -352,16 +394,24 @@ export function renderLanding(_req: Request, res: Response): void {
       padding: 0 2px;
     }
     .uni-logo img ~ .uni-monogram { display: none; }
-    .uni-item-info { min-width: 0; display: flex; flex-direction: column; gap: 0.05rem; }
+    .uni-item-info { min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; flex: 1; }
     .uni-item-short {
       font-weight: 600;
-      font-size: 0.85rem;
+      font-size: 0.9rem;
       display: flex;
       align-items: center;
-      gap: 0.4rem;
+      gap: 0.5rem;
+      min-width: 0;
+    }
+    .uni-item-title {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .uni-item-name {
-      font-size: 0.7rem;
+      min-width: 0;
+      font-size: 0.76rem;
       color: var(--text-muted);
       white-space: nowrap;
       overflow: hidden;
@@ -373,9 +423,55 @@ export function renderLanding(_req: Request, res: Response): void {
       letter-spacing: 0.04em;
       border-radius: 5px;
       padding: 0.08rem 0.35rem;
+      flex-shrink: 0;
     }
     .uni-cat.ipta { color: var(--accent); background: var(--accent-soft); }
     .uni-cat.ipts { color: var(--violet); background: var(--violet-soft); }
+    .uni-cat.polytechnic { color: var(--teal); background: var(--teal-soft); }
+    .uni-cat.community-college { color: var(--gold); background: var(--gold-soft); }
+    .uni-cat.mara-college { color: var(--rose); background: var(--rose-soft); }
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      margin-top: 1.1rem;
+    }
+    .pagination button {
+      font: inherit;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+      background: var(--page);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.4rem 1rem;
+      cursor: pointer;
+    }
+    .pagination button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+    .pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+    #page-indicator { font-size: 0.82rem; color: var(--text-muted); white-space: nowrap; }
+    .two-col {
+      display: grid;
+      grid-template-columns: minmax(260px, 1.1fr) 1fr;
+      gap: 1rem;
+      margin-top: 1.25rem;
+      animation: detail-row-reveal 220ms ease;
+    }
+    @keyframes detail-row-reveal {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .two-col { animation: none; }
+    }
+    .two-col[hidden] {
+      display: none;
+    }
+    @media (max-width: 800px) {
+      .two-col { grid-template-columns: 1fr; }
+    }
+    .two-col > .panel { margin-top: 0; min-height: 300px; }
     .map-wrap { position: relative; }
     svg.map { display: block; width: 100%; height: auto; touch-action: pan-y; }
     svg.map.zoomed { touch-action: none; cursor: grab; }
@@ -407,10 +503,10 @@ export function renderLanding(_req: Request, res: Response): void {
       stroke-width: 1.5;
       vector-effect: non-scaling-stroke;
       pointer-events: none;
+      opacity: 0;
       transition: opacity 160ms ease;
     }
-    svg.map.focus .campus-dot { opacity: 0.3; }
-    svg.map.focus .campus-dot.lit { opacity: 1; }
+    .campus-dot.lit { opacity: 1; }
     svg.map.uni-pin .campus-dot.lit {
       transform-box: fill-box;
       transform-origin: center;
@@ -513,66 +609,16 @@ export function renderLanding(_req: Request, res: Response): void {
     #map-tooltip .tt-name { font-weight: 600; }
     #map-tooltip .tt-counts { color: var(--text-secondary); display: block; }
     #map-tooltip .tt-hint { color: var(--text-muted); font-size: 0.72rem; display: block; margin-top: 0.1rem; }
-    .explorer {
-      display: grid;
-      grid-template-columns: minmax(260px, 2fr) 3fr;
-      gap: 1rem;
-      margin-top: 1rem;
-    }
-    @media (max-width: 800px) {
-      .explorer { grid-template-columns: 1fr; }
-    }
-    .explorer > div {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 1.1rem 1.25rem;
-      box-shadow: var(--shadow);
-      min-height: 320px;
-    }
-    .explorer h3 { margin: 0; font-size: 1.15rem; }
-    #panel-counts { margin: 0.15rem 0 0.9rem; color: var(--text-secondary); font-size: 0.88rem; }
-    .panel-section-label {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      margin: 0.9rem 0 0.4rem;
-    }
-    .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-    .chip {
-      font: inherit;
-      font-size: 0.82rem;
-      font-weight: 600;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.35rem;
-      border: 1px solid transparent;
-      border-radius: 999px;
-      padding: 0.28rem 0.7rem;
-      cursor: pointer;
-      color: var(--text);
-      background: var(--accent-soft);
-    }
-    .chip img { width: 16px; height: 16px; object-fit: contain; border-radius: 3px; }
-    .chip::before {
-      content: "";
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--accent);
-    }
-    .chip.ipts { background: var(--violet-soft); }
-    .chip.ipts::before { background: var(--violet); }
-    .chip.has-logo::before { display: none; }
-    .chip:hover { border-color: var(--accent); }
-    .chip.ipts:hover { border-color: var(--violet); }
+    #detail-title { margin: 0; font-size: 1.1rem; }
+    #detail-meta { margin: 0.2rem 0 0.9rem; color: var(--text-secondary); font-size: 0.85rem; }
     .campus-list { list-style: none; margin: 0; padding: 0; font-size: 0.85rem; }
     .campus-list li { border-bottom: 1px solid var(--hairline); }
     .campus-list li:last-child { border-bottom: none; }
     .campus-list button {
       font: inherit;
       display: flex;
-      justify-content: space-between;
-      gap: 0.75rem;
+      flex-direction: column;
+      gap: 0.15rem;
       width: 100%;
       padding: 0.4rem 0.15rem;
       background: none;
@@ -582,7 +628,7 @@ export function renderLanding(_req: Request, res: Response): void {
       text-align: left;
     }
     .campus-list button:hover { color: var(--accent); }
-    .campus-list .city { color: var(--text-muted); white-space: nowrap; }
+    .campus-list .city { color: var(--text-muted); }
     .empty-note { color: var(--text-muted); font-size: 0.85rem; font-style: italic; }
     .tester-bar { display: flex; gap: 0.5rem; align-items: center; }
     .tester-bar code {
@@ -693,7 +739,7 @@ export function renderLanding(_req: Request, res: Response): void {
   <main>
     <header>
       <h1>myuni-api</h1>
-      <p class="subtitle">Open-source REST API for Malaysian university and campus data (public &amp; private institutions). Hover a state to explore it and call the API live.</p>
+      <p class="subtitle">Open-source REST API for Malaysian university and campus data (public &amp; private institutions). Search below, or browse the map by location.</p>
       <p class="links">
         <a class="primary" href="/docs">API docs</a>
         <a href="/health">Health check</a>
@@ -711,30 +757,85 @@ export function renderLanding(_req: Request, res: Response): void {
         </div>
         <div class="stat">
           <span class="label">States covered</span>
-          <span class="value">${stateCount}</span>
+          <span class="value">${statesCovered}/${realStates.length}</span>
+        </div>
+        <div class="stat">
+          <span class="label">Territories covered</span>
+          <span class="value">${territoriesCovered}/${FEDERAL_TERRITORIES.size}</span>
         </div>
       </div>
     </header>
-    <section class="map-card">
-      <h2>Explore the map</h2>
-      <p class="map-sub">Search or filter universities and click one to pinpoint its campuses, or hover a state &mdash; click to pin &amp; zoom, Ctrl + scroll to zoom, drag to pan.</p>
-      <div class="map-layout">
-      <div class="uni-panel">
-        <div class="uni-panel-inner">
-          <input id="uni-search" type="search" placeholder="Search ${universities.length} universities&hellip;" aria-label="Search universities" autocomplete="off" />
-          <div class="uni-filter" role="group" aria-label="Filter universities by category">
-            <button type="button" class="active" data-cat="ALL">All</button>
-            <button type="button" data-cat="IPTA">IPTA</button>
-            <button type="button" data-cat="IPTS">IPTS</button>
-            <span id="uni-count">${universities.length} shown</span>
-          </div>
-          <div class="uni-list" id="uni-list" aria-label="Universities">${uniItems}
-            <p class="empty-note" id="uni-empty" hidden>No universities match.</p>
-          </div>
-        </div>
+
+    <section class="panel search-hero">
+      <h2>Find a university</h2>
+      <p class="panel-sub">Search by name, filter by category or state, or click a state on the map below.</p>
+      <div class="search-row">
+        <input id="uni-search" type="search" placeholder="Search ${universities.length} universities&hellip;" aria-label="Search universities" autocomplete="off" />
+        <select id="state-select" aria-label="Filter by state">
+          <option value="">All states</option>
+          ${MALAYSIAN_STATES.map(
+            (s) => `<option value="${escapeHtml(s)}">${escapeHtml(stateLabels[s])}</option>`,
+          ).join('\n          ')}
+        </select>
       </div>
+      <div class="uni-filter" role="group" aria-label="Filter universities by category">
+        <button type="button" class="active" data-cat="ALL">All</button>
+        ${presentCategories
+          .map((cat) => `<button type="button" data-cat="${escapeHtml(cat)}">${escapeHtml(cat)}</button>`)
+          .join('\n        ')}
+      </div>
+      <div class="search-meta">
+        <span id="uni-count"></span>
+        <span id="state-filter-pill" hidden><span id="state-filter-name"></span><button type="button" id="state-filter-clear" aria-label="Clear state filter">&times;</button></span>
+      </div>
+    </section>
+
+    <section class="panel" id="results-card">
+      <div class="uni-list" id="uni-list" aria-label="Universities"></div>
+      <p class="empty-note" id="uni-empty" hidden>No universities match your search.</p>
+      <div class="pagination" id="pagination">
+        <button type="button" id="page-prev">&lsaquo; Prev</button>
+        <span id="page-indicator"></span>
+        <button type="button" id="page-next">Next &rsaquo;</button>
+      </div>
+    </section>
+
+    <div class="two-col" id="detail-row" hidden>
+      <div class="panel" id="detail-card">
+        <h3 id="detail-title"></h3>
+        <p id="detail-meta"></p>
+        <ul class="campus-list" id="detail-campuses"></ul>
+        <p class="empty-note" id="detail-empty">Click a university above to see its campuses here.</p>
+      </div>
+      <div class="panel">
+        <div class="tester-bar">
+          <code id="endpoint">GET /api/university</code>
+          <button id="run-btn" type="button">Run</button>
+        </div>
+        <div class="quick-links">
+          <button type="button" data-url="/api/university">All universities</button>
+          <button type="button" data-url="/api/campus">All campuses</button>
+        </div>
+        <div class="snippet-box">
+          <div class="snippet-tabs" role="tablist" aria-label="Copy the current endpoint as">
+            <button type="button" class="active" data-lang="url">URL</button>
+            <button type="button" data-lang="curl">cURL</button>
+            <button type="button" data-lang="js">JavaScript</button>
+            <button type="button" data-lang="py">Python</button>
+            <button type="button" id="copy-btn">Copy</button>
+          </div>
+          <pre id="snippet"></pre>
+        </div>
+        <div id="tester-status" role="status"></div>
+        <pre id="response" aria-live="polite"></pre>
+      </div>
+    </div>
+
+    <section class="panel map-card">
+      <h2>Browse by location</h2>
+      <p class="panel-sub">Hover a state to preview it, click to filter the results above &amp; zoom in. Ctrl + scroll to zoom, drag to pan.</p>
       <div class="map-wrap">
-        <svg id="map-svg" class="map" viewBox="${MAP_VIEWBOX}" role="group" aria-label="Map of Malaysia. Each state is a button that loads its universities and campuses.">
+        <svg id="map-svg" class="map" viewBox="${MAP_VIEWBOX}" role="group" aria-label="Map of Malaysia. Each state is a button that filters the university list by location.">
           <defs>
             <pattern id="nodata-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
               <rect width="6" height="6" />
@@ -755,7 +856,6 @@ export function renderLanding(_req: Request, res: Response): void {
         </div>
         <div id="zoom-hint" aria-hidden="true">Use Ctrl + scroll to zoom the map</div>
       </div>
-      </div>
       <div class="legend">
         <button class="key" type="button" data-bin="0" aria-label="Highlight states with no campuses"><span class="swatch hatch"></span>No campuses</button>
         <button class="key" type="button" data-bin="1" aria-label="Highlight states with 1 to 2 campuses"><span class="swatch" style="background: var(--map-1)"></span>1&ndash;2</button>
@@ -764,40 +864,9 @@ export function renderLanding(_req: Request, res: Response): void {
         <button class="key" type="button" data-bin="4" aria-label="Highlight states with 8 or more campuses"><span class="swatch" style="background: var(--map-4)"></span>8+</button>
         <span class="key"><span class="dot-key"></span>Campus location</span>
       </div>
-      <p class="map-note">Sea gap between the Peninsula and Borneo is compressed for layout. State boundaries: DOSM Malaysia open data.</p>
+      <p class="map-note">Sea gap between the Peninsula and Borneo is compressed for layout. State boundaries: DOSM Malaysia open data. Federal Territories (Kuala Lumpur, Labuan, Putrajaya) are shown with their full names on hover.</p>
     </section>
-    <section class="explorer">
-      <div>
-        <h3 id="panel-title">Pick a state</h3>
-        <p id="panel-counts">Hover or tap any state on the map.</p>
-        <p class="panel-section-label" id="unis-label" hidden>Universities &mdash; click to call the API</p>
-        <div class="chips" id="panel-unis"></div>
-        <p class="panel-section-label" id="campuses-label" hidden>Campuses</p>
-        <ul class="campus-list" id="panel-campuses"></ul>
-      </div>
-      <div>
-        <div class="tester-bar">
-          <code id="endpoint">GET /api/campus</code>
-          <button id="run-btn" type="button">Run</button>
-        </div>
-        <div class="quick-links">
-          <button type="button" data-url="/api/university">All universities</button>
-          <button type="button" data-url="/api/campus">All campuses</button>
-        </div>
-        <div class="snippet-box">
-          <div class="snippet-tabs" role="tablist" aria-label="Copy the current endpoint as">
-            <button type="button" class="active" data-lang="url">URL</button>
-            <button type="button" data-lang="curl">cURL</button>
-            <button type="button" data-lang="js">JavaScript</button>
-            <button type="button" data-lang="py">Python</button>
-            <button type="button" id="copy-btn">Copy</button>
-          </div>
-          <pre id="snippet"></pre>
-        </div>
-        <div id="tester-status" role="status"></div>
-        <pre id="response" aria-live="polite"></pre>
-      </div>
-    </section>
+
     <footer>
       Data is community-maintained and MIT-licensed. See <a href="/docs">API docs</a> for full endpoint reference and query filters.
     </footer>
@@ -805,7 +874,7 @@ export function renderLanding(_req: Request, res: Response): void {
   <div id="map-tooltip" role="presentation">
     <span class="tt-head"><span class="tt-swatch"></span><span class="tt-name"></span></span>
     <span class="tt-counts"></span>
-    <span class="tt-hint">Click to pin &amp; zoom</span>
+    <span class="tt-hint">Click to filter &amp; zoom</span>
   </div>
   <script type="application/json" id="state-data">${payloadJson}</script>
   <script src="/landing.js" defer></script>
@@ -817,35 +886,56 @@ export function renderLanding(_req: Request, res: Response): void {
 
 const LANDING_SCRIPT = `(function () {
   'use strict';
+  function catSlug(cat) {
+    return cat.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  }
   var dataEl = document.getElementById('state-data');
   if (!dataEl) return;
   var PAYLOAD = JSON.parse(dataEl.textContent);
-  var STATES = PAYLOAD.states;
+  var STATE_COUNTS = PAYLOAD.stateCounts;
+  var STATE_LABELS = PAYLOAD.stateLabels;
+  var ALL_UNIS = PAYLOAD.unis;
   var unisById = {};
-  PAYLOAD.unis.forEach(function (uni) {
+  ALL_UNIS.forEach(function (uni) {
     unisById[uni.id] = uni;
   });
+
+  function stateLabel(name) {
+    return STATE_LABELS[name] || name;
+  }
 
   var svg = document.getElementById('map-svg');
   var tooltip = document.getElementById('map-tooltip');
   var ttSwatch = tooltip.querySelector('.tt-swatch');
   var ttName = tooltip.querySelector('.tt-name');
   var ttCounts = tooltip.querySelector('.tt-counts');
-  var panelTitle = document.getElementById('panel-title');
-  var panelCounts = document.getElementById('panel-counts');
-  var panelUnis = document.getElementById('panel-unis');
-  var panelCampuses = document.getElementById('panel-campuses');
-  var unisLabel = document.getElementById('unis-label');
-  var campusesLabel = document.getElementById('campuses-label');
   var endpointEl = document.getElementById('endpoint');
   var statusEl = document.getElementById('tester-status');
   var responseEl = document.getElementById('response');
   var runBtn = document.getElementById('run-btn');
   var zoomHint = document.getElementById('zoom-hint');
+  var listEl = document.getElementById('uni-list');
+  var emptyEl = document.getElementById('uni-empty');
+  var countEl = document.getElementById('uni-count');
+  var searchEl = document.getElementById('uni-search');
+  var stateSelect = document.getElementById('state-select');
+  var filterBtns = Array.prototype.slice.call(document.querySelectorAll('.uni-filter button'));
+  var statePill = document.getElementById('state-filter-pill');
+  var statePillName = document.getElementById('state-filter-name');
+  var statePillClear = document.getElementById('state-filter-clear');
+  var pagePrev = document.getElementById('page-prev');
+  var pageNext = document.getElementById('page-next');
+  var pageIndicator = document.getElementById('page-indicator');
+  var paginationEl = document.getElementById('pagination');
+  var resultsCard = document.getElementById('results-card');
+  var detailRow = document.getElementById('detail-row');
+  var detailTitle = document.getElementById('detail-title');
+  var detailMeta = document.getElementById('detail-meta');
+  var detailCampuses = document.getElementById('detail-campuses');
+  var detailEmpty = document.getElementById('detail-empty');
 
   var statePaths = Array.prototype.slice.call(document.querySelectorAll('.state'));
   var campusDots = Array.prototype.slice.call(document.querySelectorAll('.campus-dot'));
-  var uniItems = Array.prototype.slice.call(document.querySelectorAll('.uni-item'));
 
   /* ---------------- camera: zoom & pan ---------------- */
   var vb = svg.getAttribute('viewBox').split(' ').map(Number);
@@ -955,7 +1045,6 @@ const LANDING_SCRIPT = `(function () {
 
   /* drag to pan + two-finger pinch */
   var pointers = {};
-  var pointerCount = 0;
   var didDrag = false;
   var downPos = null;
 
@@ -965,10 +1054,22 @@ const LANDING_SCRIPT = `(function () {
     });
   }
 
+  function pointerCountNow() {
+    return Object.keys(pointers).length;
+  }
+
   svg.addEventListener('pointerdown', function (event) {
+    /* A mouse only ever has one pointerId. If it's already tracked, the
+       matching pointerup/pointercancel for the previous press was lost
+       (can happen with fast clicks, focus changes, or automation) --
+       without this reset, pointerCountNow() overshoots and every future
+       click gets misrouted into the two-pointer pinch branch below, which
+       unconditionally sets didDrag = true and silently swallows clicks. */
+    if (event.pointerType === 'mouse') {
+      pointers = {};
+    }
     pointers[event.pointerId] = { x: event.clientX, y: event.clientY };
-    pointerCount++;
-    if (pointerCount === 1) {
+    if (pointerCountNow() === 1) {
       downPos = { x: event.clientX, y: event.clientY };
       didDrag = false;
     }
@@ -978,7 +1079,7 @@ const LANDING_SCRIPT = `(function () {
   svg.addEventListener('pointermove', function (event) {
     var p = pointers[event.pointerId];
     if (!p) return;
-    if (pointerCount === 2) {
+    if (pointerCountNow() === 2) {
       var list = pointerList();
       var other = list[0] === p ? list[1] : list[0];
       var prevDist = Math.hypot(p.x - other.x, p.y - other.y);
@@ -987,10 +1088,10 @@ const LANDING_SCRIPT = `(function () {
         zoomAt((event.clientX + other.x) / 2, (event.clientY + other.y) / 2, newDist / prevDist);
       }
       didDrag = true;
-    } else if (pointerCount === 1) {
+    } else if (pointerCountNow() === 1) {
       var dx = event.clientX - p.x;
       var dy = event.clientY - p.y;
-      if (!didDrag && downPos && Math.hypot(event.clientX - downPos.x, event.clientY - downPos.y) > 5) {
+      if (!didDrag && downPos && Math.hypot(event.clientX - downPos.x, event.clientY - downPos.y) > 12) {
         didDrag = true;
         svg.classList.add('dragging');
       }
@@ -1007,12 +1108,8 @@ const LANDING_SCRIPT = `(function () {
   });
 
   function endPointer(event) {
-    if (pointers[event.pointerId]) {
-      delete pointers[event.pointerId];
-      pointerCount--;
-    }
-    if (pointerCount <= 0) {
-      pointerCount = 0;
+    delete pointers[event.pointerId];
+    if (pointerCountNow() <= 0) {
       svg.classList.remove('dragging');
     }
   }
@@ -1033,15 +1130,10 @@ const LANDING_SCRIPT = `(function () {
   );
 
   /* ---------------- API tester ---------------- */
-  var currentUrl = '/api/campus';
-  var pinnedState = null;
+  var currentUrl = null;
   var pinnedUni = null;
   var runTimer = null;
   var cache = {};
-
-  function stateEndpoint(name) {
-    return '/api/campus?state=' + encodeURIComponent(name);
-  }
 
   var JSON_TOKEN = /("(?:[^"\\\\]|\\\\.)*")(\\s*:)?|\\b(?:true|false|null)\\b|-?\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?/g;
 
@@ -1140,67 +1232,189 @@ const LANDING_SCRIPT = `(function () {
       });
   }
 
-  function scheduleRun(url) {
-    if (runTimer) clearTimeout(runTimer);
-    currentUrl = url;
-    endpointEl.textContent = 'GET ' + url;
-    updateSnippet();
-    runTimer = setTimeout(function () {
-      run(url);
-    }, 250);
+  /* ---------------- search, filter & pagination ---------------- */
+  var PAGE_SIZE = 10;
+  var filter = { query: '', cat: 'ALL', state: null, page: 1 };
+
+  function matchesFilter(uni) {
+    var okCat = filter.cat === 'ALL' || uni.cat === filter.cat;
+    var okState = !filter.state || uni.states.indexOf(filter.state) !== -1;
+    var okText = !filter.query || (uni.short + ' ' + uni.name).toLowerCase().indexOf(filter.query) !== -1;
+    return okCat && okState && okText;
   }
 
-  /* ---------------- state panel ---------------- */
-  function countsText(data) {
-    return (
-      data.u.length + (data.u.length === 1 ? ' university' : ' universities') +
-      ' \\u00b7 ' + data.c.length + (data.c.length === 1 ? ' campus' : ' campuses')
-    );
+  function getFiltered() {
+    return ALL_UNIS.filter(matchesFilter);
   }
 
-  function renderPanel(name) {
-    var data = STATES[name];
-    if (!data) return;
-    panelTitle.textContent = name;
-    panelCounts.textContent = countsText(data);
-
-    panelUnis.textContent = '';
-    panelCampuses.textContent = '';
-    unisLabel.hidden = data.u.length === 0;
-    campusesLabel.hidden = data.c.length === 0;
-
-    if (data.u.length === 0) {
-      var note = document.createElement('p');
-      note.className = 'empty-note';
-      note.textContent = 'No campuses on record here yet \\u2014 the API returns an empty list.';
-      panelUnis.appendChild(note);
-    }
-
-    data.u.forEach(function (uni) {
-      var chip = document.createElement('button');
-      chip.type = 'button';
-      chip.className = 'chip' + (uni.cat === 'IPTS' ? ' ipts' : '');
-      if (uni.logo) {
-        var img = document.createElement('img');
-        img.src = uni.logo;
-        img.alt = '';
-        img.loading = 'lazy';
-        img.addEventListener('error', function () {
-          img.remove();
-          chip.classList.remove('has-logo');
-        });
-        chip.appendChild(img);
-        chip.classList.add('has-logo');
-      }
-      chip.appendChild(document.createTextNode(uni.short));
-      chip.title = uni.name + ' (' + uni.cat + ')';
-      chip.addEventListener('click', function () {
-        run('/api/university/' + uni.id);
-      });
-      panelUnis.appendChild(chip);
+  function markActiveRow(id) {
+    Array.prototype.slice.call(listEl.querySelectorAll('.uni-item')).forEach(function (el) {
+      el.classList.toggle('active', id !== null && el.getAttribute('data-id') === id);
     });
+  }
 
-    data.c.forEach(function (campus) {
+  function buildRow(uni) {
+    var row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'uni-item';
+    row.setAttribute('data-id', uni.id);
+    row.title = uni.name;
+
+    var logo = document.createElement('span');
+    logo.className = 'uni-logo';
+    if (uni.logo) {
+      var img = document.createElement('img');
+      img.src = uni.logo;
+      img.alt = '';
+      img.loading = 'lazy';
+      img.addEventListener('error', function () {
+        img.remove();
+      });
+      logo.appendChild(img);
+    }
+    var mono = document.createElement('span');
+    mono.className = 'uni-monogram';
+    mono.setAttribute('aria-hidden', 'true');
+    var monoSource = uni.short && uni.short !== uni.id ? uni.short : uni.name;
+    mono.textContent = monoSource.slice(0, 6);
+    logo.appendChild(mono);
+    row.appendChild(logo);
+
+    var info = document.createElement('span');
+    info.className = 'uni-item-info';
+
+    var nameLine = document.createElement('span');
+    nameLine.className = 'uni-item-short';
+    var nameText = document.createElement('span');
+    nameText.className = 'uni-item-title';
+    /* short_name defaults to the id slug for institutions we couldn't find a
+       real abbreviation for -- showing that raw slug as the headline is the
+       exact mess from the old chip-wall design, so prefer the full name
+       whenever short looks auto-generated. */
+    nameText.textContent = uni.short && uni.short !== uni.id ? uni.short + ' \\u2014 ' + uni.name : uni.name;
+    nameLine.appendChild(nameText);
+    var catBadge = document.createElement('span');
+    catBadge.className = 'uni-cat ' + catSlug(uni.cat);
+    catBadge.textContent = uni.cat;
+    nameLine.appendChild(catBadge);
+    info.appendChild(nameLine);
+
+    var metaLine = document.createElement('span');
+    metaLine.className = 'uni-item-name';
+    var metaParts = [uni.c.length + (uni.c.length === 1 ? ' campus' : ' campuses')];
+    if (uni.states.length) metaParts.push(uni.states.map(stateLabel).join(', '));
+    metaLine.textContent = metaParts.join(' \\u00b7 ');
+    info.appendChild(metaLine);
+
+    row.appendChild(info);
+    row.addEventListener('click', function () {
+      selectUniversity(uni.id);
+    });
+    return row;
+  }
+
+  function scrollToResults() {
+    resultsCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function renderResults() {
+    var filtered = getFiltered();
+    var totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    if (filter.page > totalPages) filter.page = totalPages;
+    if (filter.page < 1) filter.page = 1;
+    var start = (filter.page - 1) * PAGE_SIZE;
+    var pageItems = filtered.slice(start, start + PAGE_SIZE);
+
+    listEl.textContent = '';
+    pageItems.forEach(function (uni) {
+      listEl.appendChild(buildRow(uni));
+    });
+    if (pinnedUni) markActiveRow(pinnedUni);
+
+    emptyEl.hidden = filtered.length !== 0;
+    countEl.textContent = filtered.length + (filtered.length === 1 ? ' university found' : ' universities found');
+    pageIndicator.textContent = 'Page ' + filter.page + ' of ' + totalPages;
+    pagePrev.disabled = filter.page <= 1;
+    pageNext.disabled = filter.page >= totalPages;
+    paginationEl.hidden = totalPages <= 1;
+  }
+
+  searchEl.addEventListener('input', function () {
+    filter.query = searchEl.value.trim().toLowerCase();
+    filter.page = 1;
+    renderResults();
+  });
+  searchEl.addEventListener('keydown', function (event) {
+    if (event.key !== 'Enter') return;
+    var filtered = getFiltered();
+    if (filtered.length) selectUniversity(filtered[0].id);
+  });
+
+  filterBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      filter.cat = btn.getAttribute('data-cat');
+      filter.page = 1;
+      filterBtns.forEach(function (other) {
+        other.classList.toggle('active', other === btn);
+      });
+      renderResults();
+    });
+  });
+
+  pagePrev.addEventListener('click', function () {
+    if (filter.page > 1) {
+      filter.page--;
+      renderResults();
+      scrollToResults();
+    }
+  });
+  pageNext.addEventListener('click', function () {
+    filter.page++;
+    renderResults();
+    scrollToResults();
+  });
+
+  function setStateFilter(name) {
+    filter.state = name;
+    filter.page = 1;
+    stateSelect.value = name || '';
+    if (name) {
+      statePillName.textContent = stateLabel(name);
+      statePill.hidden = false;
+    } else {
+      statePill.hidden = true;
+    }
+    renderResults();
+  }
+
+  stateSelect.addEventListener('change', function () {
+    var name = stateSelect.value || null;
+    var path = name ? document.querySelector('.state[data-state="' + name + '"]') : null;
+    if (path) {
+      /* reuse the map's own click handler so the pin, zoom, and dot
+         highlighting all stay in sync with a dropdown-driven selection */
+      path.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    } else {
+      clearUniPin();
+      clearPin();
+      setStateFilter(null);
+    }
+  });
+
+  statePillClear.addEventListener('click', function () {
+    setStateFilter(null);
+    clearPin();
+  });
+
+  /* ---------------- detail card ---------------- */
+  function renderDetail(uni) {
+    detailEmpty.hidden = true;
+    detailTitle.textContent = uni.name;
+    var metaParts = [uni.cat, uni.c.length + (uni.c.length === 1 ? ' campus' : ' campuses')];
+    if (uni.states.length) metaParts.push(uni.states.map(stateLabel).join(', '));
+    detailMeta.textContent = metaParts.join(' \\u00b7 ');
+    detailCampuses.textContent = '';
+    uni.c.forEach(function (campus) {
       var li = document.createElement('li');
       var btn = document.createElement('button');
       btn.type = 'button';
@@ -1208,40 +1422,34 @@ const LANDING_SCRIPT = `(function () {
       nameSpan.textContent = campus.name;
       var citySpan = document.createElement('span');
       citySpan.className = 'city';
-      citySpan.textContent = campus.u + ' \\u00b7 ' + campus.city;
+      citySpan.textContent = campus.city + ', ' + stateLabel(campus.state);
       btn.appendChild(nameSpan);
       btn.appendChild(citySpan);
       btn.addEventListener('click', function () {
         run('/api/campus/' + campus.id);
       });
       li.appendChild(btn);
-      panelCampuses.appendChild(li);
+      detailCampuses.appendChild(li);
     });
   }
 
-  function selectState(name, immediate) {
-    renderPanel(name);
-    if (immediate) {
-      if (runTimer) clearTimeout(runTimer);
-      run(stateEndpoint(name));
-    } else {
-      scheduleRun(stateEndpoint(name));
-    }
+  function clearDetail() {
+    detailEmpty.hidden = false;
+    detailTitle.textContent = '';
+    detailMeta.textContent = '';
+    detailCampuses.textContent = '';
   }
 
   /* ---------------- hover, tooltip, pin ---------------- */
+  /* Dots are hidden by default (see .campus-dot CSS) and only revealed via
+     .lit -- with 500+ campuses, showing them all at once turns the Klang
+     Valley into an unreadable smudge. The state choropleth coloring already
+     communicates density at a glance; dots are an on-demand detail layer
+     shown only for a hovered/pinned state or a selected university. */
   function litDots(name) {
-    if (name) {
-      svg.classList.add('focus');
-      campusDots.forEach(function (dot) {
-        dot.classList.toggle('lit', dot.getAttribute('data-state') === name);
-      });
-    } else {
-      svg.classList.remove('focus');
-      campusDots.forEach(function (dot) {
-        dot.classList.remove('lit');
-      });
-    }
+    campusDots.forEach(function (dot) {
+      dot.classList.toggle('lit', name !== null && dot.getAttribute('data-state') === name);
+    });
   }
 
   function moveTooltip(event) {
@@ -1256,12 +1464,16 @@ const LANDING_SCRIPT = `(function () {
   }
 
   function fillTooltip(name, path) {
-    ttName.textContent = name;
-    ttCounts.textContent = countsText(STATES[name]);
+    ttName.textContent = stateLabel(name);
+    var counts = STATE_COUNTS[name];
+    ttCounts.textContent =
+      counts.u + (counts.u === 1 ? ' university' : ' universities') +
+      ' \\u00b7 ' + counts.c + (counts.c === 1 ? ' campus' : ' campuses');
     var fill = getComputedStyle(path).fill;
     ttSwatch.style.background = fill.indexOf('url') === 0 ? 'var(--map-none)' : fill;
   }
 
+  var pinnedState = null;
   function clearPin() {
     if (!pinnedState) return;
     var prev = document.querySelector('.state.pinned');
@@ -1278,25 +1490,25 @@ const LANDING_SCRIPT = `(function () {
       fillTooltip(name, path);
       tooltip.style.display = 'block';
       moveTooltip(event);
-      litDots(name);
-      if (!pinnedState && !pinnedUni) selectState(name, false);
+      if (!pinnedState) litDots(name);
     });
     path.addEventListener('pointermove', moveTooltip);
     path.addEventListener('pointerleave', function () {
       tooltip.style.display = 'none';
-      clearUniHighlight();
+      if (!pinnedState) litDots(null);
     });
     path.addEventListener('focus', function () {
-      litDots(name);
-      if (!pinnedState && !pinnedUni) selectState(name, false);
+      fillTooltip(name, path);
+      if (!pinnedState) litDots(name);
     });
     path.addEventListener('blur', function () {
-      clearUniHighlight();
+      if (!pinnedState) litDots(null);
     });
     path.addEventListener('click', function () {
       tooltip.style.display = 'none';
       if (pinnedState === name) {
         clearPin();
+        setStateFilter(null);
         resetView();
         return;
       }
@@ -1306,8 +1518,9 @@ const LANDING_SCRIPT = `(function () {
       path.classList.add('pinned');
       svg.classList.add('has-pin');
       litDots(name);
-      selectState(name, true);
+      setStateFilter(name);
       zoomToBBox(path.getBBox());
+      scrollToResults();
     });
     path.addEventListener('keydown', function (event) {
       if (event.key === 'Enter' || event.key === ' ') {
@@ -1321,6 +1534,7 @@ const LANDING_SCRIPT = `(function () {
     if (event.key === 'Escape') {
       clearUniPin();
       clearPin();
+      setStateFilter(null);
       resetView();
     }
   });
@@ -1346,7 +1560,6 @@ const LANDING_SCRIPT = `(function () {
 
   /* ---------------- university selection ---------------- */
   function highlightUni(id) {
-    svg.classList.add('focus');
     campusDots.forEach(function (dot) {
       dot.classList.toggle('lit', dot.getAttribute('data-university') === id);
     });
@@ -1357,32 +1570,17 @@ const LANDING_SCRIPT = `(function () {
     });
   }
 
-  function clearUniHighlight() {
-    if (pinnedUni) {
-      highlightUni(pinnedUni);
-      return;
-    }
-    statePaths.forEach(function (path) {
-      path.classList.remove('dim');
-    });
-    litDots(pinnedState);
-  }
-
-  function markActive(id) {
-    uniItems.forEach(function (el) {
-      el.classList.toggle('active', id !== null && el.getAttribute('data-id') === id);
-    });
-  }
-
   function clearUniPin() {
     if (!pinnedUni) return;
     pinnedUni = null;
     svg.classList.remove('uni-pin');
-    markActive(null);
+    markActiveRow(null);
     statePaths.forEach(function (path) {
       path.classList.remove('dim');
     });
     litDots(pinnedState);
+    clearDetail();
+    detailRow.hidden = true;
   }
 
   function zoomToUni(id) {
@@ -1405,35 +1603,6 @@ const LANDING_SCRIPT = `(function () {
     zoomToBBox({ x: minX - 12, y: minY - 12, width: maxX - minX + 24, height: maxY - minY + 24 });
   }
 
-  function renderUniPanel(uni) {
-    panelTitle.textContent = uni.short;
-    panelCounts.textContent =
-      uni.name + ' \\u00b7 ' + uni.cat +
-      ' \\u00b7 ' + uni.c.length + (uni.c.length === 1 ? ' campus' : ' campuses') +
-      ' \\u00b7 ' + uni.states.length + (uni.states.length === 1 ? ' state' : ' states');
-    panelUnis.textContent = '';
-    unisLabel.hidden = true;
-    campusesLabel.hidden = uni.c.length === 0;
-    panelCampuses.textContent = '';
-    uni.c.forEach(function (campus) {
-      var li = document.createElement('li');
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      var nameSpan = document.createElement('span');
-      nameSpan.textContent = campus.name;
-      var citySpan = document.createElement('span');
-      citySpan.className = 'city';
-      citySpan.textContent = campus.city + ', ' + campus.state;
-      btn.appendChild(nameSpan);
-      btn.appendChild(citySpan);
-      btn.addEventListener('click', function () {
-        run('/api/campus/' + campus.id);
-      });
-      li.appendChild(btn);
-      panelCampuses.appendChild(li);
-    });
-  }
-
   function selectUniversity(id) {
     if (pinnedUni === id) {
       clearUniPin();
@@ -1443,79 +1612,14 @@ const LANDING_SCRIPT = `(function () {
     clearPin();
     pinnedUni = id;
     svg.classList.add('uni-pin');
-    markActive(id);
+    markActiveRow(id);
     highlightUni(id);
     zoomToUni(id);
-    renderUniPanel(unisById[id]);
+    renderDetail(unisById[id]);
+    detailRow.hidden = false;
     if (runTimer) clearTimeout(runTimer);
     run('/api/university/' + id);
   }
-
-  uniItems.forEach(function (el) {
-    var id = el.getAttribute('data-id');
-    var img = el.querySelector('img');
-    if (img) {
-      img.addEventListener('error', function () {
-        img.remove();
-      });
-    }
-    el.addEventListener('click', function () {
-      selectUniversity(id);
-    });
-    el.addEventListener('pointerenter', function () {
-      highlightUni(id);
-    });
-    el.addEventListener('pointerleave', clearUniHighlight);
-    el.addEventListener('focus', function () {
-      highlightUni(id);
-    });
-    el.addEventListener('blur', clearUniHighlight);
-  });
-
-  /* ---------------- university search & category filter ---------------- */
-  var uniSearch = document.getElementById('uni-search');
-  var uniCountEl = document.getElementById('uni-count');
-  var uniEmpty = document.getElementById('uni-empty');
-  var filterBtns = Array.prototype.slice.call(document.querySelectorAll('.uni-filter button'));
-  var activeCat = 'ALL';
-
-  function applyUniFilter() {
-    var q = uniSearch.value.trim().toLowerCase();
-    var shown = 0;
-    uniItems.forEach(function (el) {
-      var okCat = activeCat === 'ALL' || el.getAttribute('data-cat') === activeCat;
-      var okText = q === '' || el.getAttribute('data-q').indexOf(q) !== -1;
-      var ok = okCat && okText;
-      el.hidden = !ok;
-      if (ok) shown++;
-    });
-    uniCountEl.textContent = shown + ' shown';
-    uniEmpty.hidden = shown !== 0;
-  }
-
-  filterBtns.forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      activeCat = btn.getAttribute('data-cat');
-      filterBtns.forEach(function (other) {
-        other.classList.toggle('active', other === btn);
-      });
-      applyUniFilter();
-    });
-  });
-
-  uniSearch.addEventListener('input', applyUniFilter);
-  uniSearch.addEventListener('keydown', function (event) {
-    if (event.key !== 'Enter') return;
-    var first = null;
-    uniItems.some(function (el) {
-      if (!el.hidden) {
-        first = el;
-        return true;
-      }
-      return false;
-    });
-    if (first) first.click();
-  });
 
   runBtn.addEventListener('click', function () {
     run(currentUrl);
@@ -1609,18 +1713,10 @@ const LANDING_SCRIPT = `(function () {
     }
   });
 
-  updateSnippet();
-
-  /* Preselect the busiest state so the page opens with live data on screen. */
-  var busiest = null;
-  var busiestCount = -1;
-  Object.keys(STATES).forEach(function (name) {
-    if (STATES[name].c.length > busiestCount) {
-      busiest = name;
-      busiestCount = STATES[name].c.length;
-    }
-  });
-  if (busiest) selectState(busiest, true);
+  /* ---------------- init ---------------- */
+  clearDetail();
+  renderResults();
+  run('/api/university');
 })();
 `;
 

@@ -10,3 +10,9 @@ coverage/
 
 .vercel
 .env*
+
+scripts/output/*
+
+# maintainer-only pipeline scripts, require API keys (GOOGLE_MAPS_API_KEY / ANTHROPIC_API_KEY)
+scripts/scrape-ipts.ts
+scripts/enrich-established-student-range.ts

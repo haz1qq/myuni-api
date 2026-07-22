@@ -9,6 +9,7 @@ export const paginationQuerySchema = z.object({
 
 export const universityQuerySchema = paginationQuerySchema.extend({
   category: universityCategorySchema.optional(),
+  state: stateSchema.optional(),
   search: z.string().trim().min(1).optional(),
 });
 

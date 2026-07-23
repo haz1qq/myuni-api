@@ -15,7 +15,6 @@ that.
   dataset yet. In particular, the `Polytechnic` and `Community College` categories are defined in
   the schema but have no entries yet — public polytechnics and community colleges are welcome
   additions.
-- **Add a logo** — drop an image into `public/logos/`, see [Adding a logo](#adding-a-logo) below.
 - **Improve the code** — the API server, the landing page, or the test suite.
 
 If you're not sure whether something belongs, open an issue first and ask.
@@ -47,7 +46,6 @@ Each university is one file, `data/university/<id>.json`:
 | `website`       | no       | full URL, or `null` if unknown                                        |
 | `established`   | no       | founding year, or `null` if unknown — don't guess                     |
 | `student_range` | no       | e.g. `"170000+"`, or `null` if unknown — don't guess                  |
-| `logo`          | no       | set automatically by `npx tsx scripts/sync-logos.ts`, don't hand-edit |
 | `description`   | no       | short free-text description                                           |
 
 Each campus is one file, `data/campus/<id>.json`, and points back at its university:
@@ -110,18 +108,6 @@ Then run the test suite too:
 ```bash
 npm test
 ```
-
-### Adding a logo
-
-Drop the image into `public/logos/` named after the university's `id` (any of `.png`, `.svg`,
-`.webp`, `.jpg` works), then run:
-
-```bash
-npx tsx scripts/sync-logos.ts
-```
-
-This writes the correct `logo` path into the matching `data/university/<id>.json` for you — don't
-set that field by hand.
 
 ## Code contributions
 

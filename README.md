@@ -101,7 +101,6 @@ Each university lives in its own file under `data/university/<id>.json`:
   "short_name": "UiTM",
   "category": "IPTA",
   "website": "https://www.uitm.edu.my",
-  "logo": "/logos/uitm.png",
   "established": 1956,
   "student_range": "170000+"
 }
@@ -109,11 +108,6 @@ Each university lives in its own file under `data/university/<id>.json`:
 
 `website`, `established`, and `student_range` are nullable — set to `null` rather than guessed
 when the value isn't known.
-
-`logo` is optional and points to an image in `public/logos/` (served at `/logos/<id>.png`); drop
-the image file there with the university's `id` as its filename. Any of png/svg/webp/jpg works —
-after adding files, run `npx tsx scripts/sync-logos.ts` to point every `logo` field at the file
-that actually exists.
 
 Each campus lives in its own file under `data/campus/<id>.json`, and references its parent
 university by `university_id`:

@@ -220,7 +220,9 @@ export function renderLanding(_req: Request, res: Response): void {
     main { max-width: 1100px; margin: 0 auto; }
     header { padding: 3rem 0 1.5rem; }
     h1 { margin: 0 0 0.4rem; font-size: 2.25rem; letter-spacing: -0.02em; }
-    .subtitle { color: var(--text-secondary); margin: 0 0 1.5rem; font-size: 1.05rem; max-width: 62ch; }
+    .subtitle { color: var(--text-secondary); margin: 0 0 0.5rem; font-size: 1.05rem; max-width: 62ch; }
+    .contribute-note { color: var(--text-secondary); margin: 0 0 1.5rem; font-size: 0.92rem; }
+    .contribute-note a { color: var(--accent); }
     .links { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 0; }
     .links a {
       color: var(--text);
@@ -234,6 +236,7 @@ export function renderLanding(_req: Request, res: Response): void {
     }
     .links a:hover { border-color: var(--accent); color: var(--accent); }
     .links a.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .links a.icon-link { display: inline-flex; align-items: center; gap: 0.4rem; }
     .stats {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -455,23 +458,23 @@ export function renderLanding(_req: Request, res: Response): void {
       display: grid;
       grid-template-columns: minmax(260px, 1.1fr) 1fr;
       gap: 1rem;
-      margin-top: 1.25rem;
-      animation: detail-row-reveal 220ms ease;
-    }
-    @keyframes detail-row-reveal {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .two-col { animation: none; }
-    }
-    .two-col[hidden] {
-      display: none;
     }
     @media (max-width: 800px) {
       .two-col { grid-template-columns: 1fr; }
     }
     .two-col > .panel { margin-top: 0; min-height: 300px; }
+    .detail-drawer {
+      display: grid;
+      width: 100%;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 280ms ease;
+    }
+    .detail-drawer.open { grid-template-rows: 1fr; }
+    .detail-drawer-inner { overflow: hidden; min-height: 0; }
+    .detail-drawer .two-col { margin: 0.5rem 0 0.15rem; }
+    @media (prefers-reduced-motion: reduce) {
+      .detail-drawer { transition: none; }
+    }
     .map-wrap { position: relative; }
     svg.map { display: block; width: 100%; height: auto; touch-action: pan-y; }
     svg.map.zoomed { touch-action: none; cursor: grab; }
@@ -703,6 +706,18 @@ export function renderLanding(_req: Request, res: Response): void {
       overflow-x: auto;
       white-space: pre;
     }
+    .response-prompt { margin: 0.7rem 0 0; font-size: 0.82rem; color: var(--text-muted); font-style: italic; }
+    .response-panel {
+      display: grid;
+      grid-template-rows: 0fr;
+      opacity: 0;
+      transition: grid-template-rows 260ms ease, opacity 220ms ease;
+    }
+    .response-panel.open { grid-template-rows: 1fr; opacity: 1; }
+    .response-panel-inner { overflow: hidden; min-height: 0; }
+    @media (prefers-reduced-motion: reduce) {
+      .response-panel { transition: none; }
+    }
     #tester-status { margin: 0.6rem 0 0.3rem; font-size: 0.8rem; color: var(--text-secondary); min-height: 1.2em; }
     #tester-status .st-good { color: var(--status-good); font-weight: 600; }
     #tester-status .st-bad { color: var(--status-bad); font-weight: 600; }
@@ -733,6 +748,9 @@ export function renderLanding(_req: Request, res: Response): void {
       font-size: 0.85rem;
     }
     footer a { color: var(--accent); }
+    footer p { margin: 0 0 0.6rem; }
+    footer p:last-child { margin-bottom: 0; }
+    footer .disclaimer { color: var(--text-secondary); }
   </style>
 </head>
 <body>
@@ -740,11 +758,16 @@ export function renderLanding(_req: Request, res: Response): void {
     <header>
       <h1>myuni-api</h1>
       <p class="subtitle">Open-source REST API for Malaysian university and campus data (public &amp; private institutions). Search below, or browse the map by location.</p>
+      <p class="contribute-note">Interested in contributing? <a href="https://github.com/haz1qq/myuni-api" target="_blank" rel="noopener noreferrer">Click here</a>.</p>
       <p class="links">
         <a class="primary" href="/docs">API docs</a>
         <a href="/health">Health check</a>
         <a href="/api/university"><code>/api/university</code></a>
         <a href="/api/campus"><code>/api/campus</code></a>
+        <a class="icon-link" href="https://github.com/haz1qq/myuni-api" target="_blank" rel="noopener noreferrer" aria-label="View source on GitHub">
+          <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+          GitHub
+        </a>
       </p>
       <div class="stats">
         <div class="stat">
@@ -800,34 +823,43 @@ export function renderLanding(_req: Request, res: Response): void {
       </div>
     </section>
 
-    <div class="two-col" id="detail-row" hidden>
-      <div class="panel" id="detail-card">
-        <h3 id="detail-title"></h3>
-        <p id="detail-meta"></p>
-        <ul class="campus-list" id="detail-campuses"></ul>
-        <p class="empty-note" id="detail-empty">Click a university above to see its campuses here.</p>
-      </div>
-      <div class="panel">
-        <div class="tester-bar">
-          <code id="endpoint">GET /api/university</code>
-          <button id="run-btn" type="button">Run</button>
-        </div>
-        <div class="quick-links">
-          <button type="button" data-url="/api/university">All universities</button>
-          <button type="button" data-url="/api/campus">All campuses</button>
-        </div>
-        <div class="snippet-box">
-          <div class="snippet-tabs" role="tablist" aria-label="Copy the current endpoint as">
-            <button type="button" class="active" data-lang="url">URL</button>
-            <button type="button" data-lang="curl">cURL</button>
-            <button type="button" data-lang="js">JavaScript</button>
-            <button type="button" data-lang="py">Python</button>
-            <button type="button" id="copy-btn">Copy</button>
+    <div class="detail-drawer" id="detail-drawer">
+      <div class="detail-drawer-inner">
+        <div class="two-col">
+          <div class="panel" id="detail-card">
+            <h3 id="detail-title"></h3>
+            <p id="detail-meta"></p>
+            <ul class="campus-list" id="detail-campuses"></ul>
+            <p class="empty-note" id="detail-empty">Click a university above to see its campuses here.</p>
           </div>
-          <pre id="snippet"></pre>
+          <div class="panel">
+            <div class="tester-bar">
+              <code id="endpoint">GET /api/university</code>
+              <button id="run-btn" type="button">Run</button>
+            </div>
+            <div class="quick-links">
+              <button type="button" data-url="/api/university">All universities</button>
+              <button type="button" data-url="/api/campus">All campuses</button>
+            </div>
+            <div class="snippet-box">
+              <div class="snippet-tabs" role="tablist" aria-label="Copy the current endpoint as">
+                <button type="button" class="active" data-lang="url">URL</button>
+                <button type="button" data-lang="curl">cURL</button>
+                <button type="button" data-lang="js">JavaScript</button>
+                <button type="button" data-lang="py">Python</button>
+                <button type="button" id="copy-btn">Copy</button>
+              </div>
+              <pre id="snippet"></pre>
+            </div>
+            <p class="response-prompt" id="response-prompt">Click &ldquo;Run&rdquo; to send the request and see the response.</p>
+            <div class="response-panel" id="response-panel">
+              <div class="response-panel-inner">
+                <div id="tester-status" role="status"></div>
+                <pre id="response" aria-live="polite"></pre>
+              </div>
+            </div>
+          </div>
         </div>
-        <div id="tester-status" role="status"></div>
-        <pre id="response" aria-live="polite"></pre>
       </div>
     </div>
 
@@ -868,7 +900,12 @@ export function renderLanding(_req: Request, res: Response): void {
     </section>
 
     <footer>
-      Data is community-maintained and MIT-licensed. See <a href="/docs">API docs</a> for full endpoint reference and query filters.
+      <p class="disclaimer">
+        <strong>myuni-api is an unofficial, independent project</strong> and is not affiliated with, endorsed by, or operated on behalf of any university, the Ministry of Higher Education, or the Malaysian Qualifications Agency (MQA). All data is compiled from publicly available sources (official university websites and the MQA's MQR register) for general informational purposes only. It may contain errors or be out of date &mdash; always verify with the relevant institution before relying on it.
+      </p>
+      <p>
+        Data is community-maintained and MIT-licensed. See <a href="/docs">API docs</a> for full endpoint reference and query filters.
+      </p>
     </footer>
   </main>
   <div id="map-tooltip" role="presentation">
@@ -912,6 +949,8 @@ const LANDING_SCRIPT = `(function () {
   var endpointEl = document.getElementById('endpoint');
   var statusEl = document.getElementById('tester-status');
   var responseEl = document.getElementById('response');
+  var responsePanel = document.getElementById('response-panel');
+  var responsePrompt = document.getElementById('response-prompt');
   var runBtn = document.getElementById('run-btn');
   var zoomHint = document.getElementById('zoom-hint');
   var listEl = document.getElementById('uni-list');
@@ -928,7 +967,7 @@ const LANDING_SCRIPT = `(function () {
   var pageIndicator = document.getElementById('page-indicator');
   var paginationEl = document.getElementById('pagination');
   var resultsCard = document.getElementById('results-card');
-  var detailRow = document.getElementById('detail-row');
+  var detailDrawer = document.getElementById('detail-drawer');
   var detailTitle = document.getElementById('detail-title');
   var detailMeta = document.getElementById('detail-meta');
   var detailCampuses = document.getElementById('detail-campuses');
@@ -1172,6 +1211,30 @@ const LANDING_SCRIPT = `(function () {
     responseEl.appendChild(frag);
   }
 
+  function hideResponsePanel() {
+    responsePanel.classList.remove('open');
+    responsePrompt.hidden = false;
+  }
+
+  function revealResponsePanel() {
+    responsePrompt.hidden = true;
+    if (!responsePanel.classList.contains('open')) {
+      requestAnimationFrame(function () {
+        responsePanel.classList.add('open');
+      });
+    }
+  }
+
+  /* Sets the endpoint the tester is pointed at without firing the request --
+     the response panel stays collapsed until the user presses Run, so Run
+     always has something to actually do. */
+  function setEndpoint(url) {
+    currentUrl = url;
+    endpointEl.textContent = 'GET ' + url;
+    updateSnippet();
+    hideResponsePanel();
+  }
+
   function showResult(rec) {
     if (rec.url !== currentUrl) return;
     responseEl.classList.remove('loading');
@@ -1192,6 +1255,7 @@ const LANDING_SCRIPT = `(function () {
     currentUrl = url;
     endpointEl.textContent = 'GET ' + url;
     updateSnippet();
+    revealResponsePanel();
     if (cache[url]) {
       showResult(cache[url]);
       return;
@@ -1329,7 +1393,15 @@ const LANDING_SCRIPT = `(function () {
     pageItems.forEach(function (uni) {
       listEl.appendChild(buildRow(uni));
     });
-    if (pinnedUni) markActiveRow(pinnedUni);
+    if (pinnedUni) {
+      markActiveRow(pinnedUni);
+      var pinnedRowEl = listEl.querySelector('.uni-item[data-id="' + pinnedUni + '"]');
+      if (pinnedRowEl) {
+        openDrawerAt(pinnedRowEl);
+      } else {
+        detachDrawer();
+      }
+    }
 
     emptyEl.hidden = filtered.length !== 0;
     countEl.textContent = filtered.length + (filtered.length === 1 ? ' university found' : ' universities found');
@@ -1426,7 +1498,7 @@ const LANDING_SCRIPT = `(function () {
       btn.appendChild(nameSpan);
       btn.appendChild(citySpan);
       btn.addEventListener('click', function () {
-        run('/api/campus/' + campus.id);
+        setEndpoint('/api/campus/' + campus.id);
       });
       li.appendChild(btn);
       detailCampuses.appendChild(li);
@@ -1438,6 +1510,51 @@ const LANDING_SCRIPT = `(function () {
     detailTitle.textContent = '';
     detailMeta.textContent = '';
     detailCampuses.textContent = '';
+  }
+
+  /* ---------------- detail drawer (accordion under the selected row) ---------------- */
+  /* The drawer is a single reused element that gets moved to sit right after
+     the clicked row via insertAdjacentElement, then animated open with the
+     grid-template-rows 0fr -> 1fr trick (animates to intrinsic height without
+     JS measuring). drawerGen guards against a stale close/detach timer firing
+     after the drawer has since been reopened or moved elsewhere. */
+  var drawerGen = 0;
+
+  function openDrawerAt(rowEl) {
+    if (!rowEl) return;
+    drawerGen++;
+    rowEl.insertAdjacentElement('afterend', detailDrawer);
+    if (!detailDrawer.classList.contains('open')) {
+      requestAnimationFrame(function () {
+        detailDrawer.classList.add('open');
+      });
+    }
+  }
+
+  function detachDrawer() {
+    drawerGen++;
+    detailDrawer.classList.remove('open');
+    if (detailDrawer.parentNode) detailDrawer.parentNode.removeChild(detailDrawer);
+  }
+
+  function closeDrawer() {
+    if (!detailDrawer.classList.contains('open')) {
+      detachDrawer();
+      return;
+    }
+    drawerGen++;
+    var gen = drawerGen;
+    detailDrawer.classList.remove('open');
+    function finish() {
+      if (gen !== drawerGen) return;
+      if (detailDrawer.parentNode) detailDrawer.parentNode.removeChild(detailDrawer);
+    }
+    detailDrawer.addEventListener('transitionend', function onEnd(event) {
+      if (event.target !== detailDrawer || event.propertyName !== 'grid-template-rows') return;
+      detailDrawer.removeEventListener('transitionend', onEnd);
+      finish();
+    });
+    setTimeout(finish, 350);
   }
 
   /* ---------------- hover, tooltip, pin ---------------- */
@@ -1580,7 +1697,7 @@ const LANDING_SCRIPT = `(function () {
     });
     litDots(pinnedState);
     clearDetail();
-    detailRow.hidden = true;
+    closeDrawer();
   }
 
   function zoomToUni(id) {
@@ -1612,13 +1729,24 @@ const LANDING_SCRIPT = `(function () {
     clearPin();
     pinnedUni = id;
     svg.classList.add('uni-pin');
-    markActiveRow(id);
     highlightUni(id);
     zoomToUni(id);
     renderDetail(unisById[id]);
-    detailRow.hidden = false;
+
+    /* jump to whichever page the row lives on so the drawer has a row to
+       drop down from, even when selection came from the search Enter-key
+       shortcut rather than a visible click */
+    var filtered = getFiltered();
+    for (var i = 0; i < filtered.length; i++) {
+      if (filtered[i].id === id) {
+        filter.page = Math.floor(i / PAGE_SIZE) + 1;
+        break;
+      }
+    }
+    renderResults();
+
     if (runTimer) clearTimeout(runTimer);
-    run('/api/university/' + id);
+    setEndpoint('/api/university/' + id);
   }
 
   runBtn.addEventListener('click', function () {
@@ -1627,7 +1755,7 @@ const LANDING_SCRIPT = `(function () {
 
   Array.prototype.slice.call(document.querySelectorAll('.quick-links button')).forEach(function (btn) {
     btn.addEventListener('click', function () {
-      run(btn.getAttribute('data-url'));
+      setEndpoint(btn.getAttribute('data-url'));
     });
   });
 
@@ -1716,7 +1844,7 @@ const LANDING_SCRIPT = `(function () {
   /* ---------------- init ---------------- */
   clearDetail();
   renderResults();
-  run('/api/university');
+  setEndpoint('/api/university');
 })();
 `;
 

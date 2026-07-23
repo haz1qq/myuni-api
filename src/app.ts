@@ -7,6 +7,7 @@ import { apiRouter } from './routes/index.js';
 import { swaggerSpec } from './docs/swagger.js';
 import { notFoundHandler } from './middleware/not-found.js';
 import { errorHandler } from './middleware/error-handler.js';
+import { apiRateLimit } from './middleware/rate-limit.js';
 import { renderLanding, serveLandingScript } from './controllers/landing.controller.js';
 
 
@@ -15,6 +16,13 @@ const helmet = helmetImport as unknown as HelmetFactory;
 
 export function createApp(): Express {
   const app = express();
+
+  /* Deployed behind Vercel's proxy (see vercel.json / api/index.ts) -- without
+     this, every request's req.ip resolves to Vercel's internal address
+     instead of the real client IP, so the rate limiter below would count
+     all visitors as one and either rate-limit everyone together or no one
+     effectively. */
+  app.set('trust proxy', 1);
 
   app.use(helmet());
   app.use(cors());
@@ -31,6 +39,7 @@ export function createApp(): Express {
 
   app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
+  app.use('/api', apiRateLimit);
   app.use('/api', (req, _res, next) => {
     const [pathPart, queryPart] = req.url.split('?');
     if (pathPart?.endsWith('.json')) {

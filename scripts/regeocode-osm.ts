@@ -12,18 +12,27 @@
  * Always run with --dry-run first and check scripts/output/regeocode-review.json
  * before doing a real run -- this overwrites live data/campus/*.json files.
  *
- * For each data/campus/<id>.json file, looks up
- * "<university name> [<campus name>], <state>, Malaysia" against Nominatim's
- * search endpoint. A match only gets written back if Nominatim returns a
- * city, a postcode, and a state that agrees with the campus's existing
- * (already-trusted) state -- anything less confident is left untouched and
- * logged to scripts/output/regeocode-review.json for manual follow-up.
- * `state` itself is never overwritten: Malaysia's states are public
- * administrative geography, not Places "Content", and the existing value is
- * already validated -- only address/city/postcode/latitude/longitude change.
+ * For each data/campus/<id>.json file, tries increasingly loose queries
+ * against Nominatim's search endpoint until one produces a confident match:
+ *   1. "<university name> [<campus name>], <state>, Malaysia" -- the precise query
+ *   2. "<university name>, <state>, Malaysia" -- drop the campus qualifier
+ *      (skipped when tier 1 was already unqualified, i.e. a "Main Campus")
+ *   3. "<city>, <state>, Malaysia" -- city-level fallback, using the campus's
+ *      existing (already-trusted) city; lower precision, but still real OSM
+ *      geography rather than leaving stale Places data in place
+ * A tier is only accepted if Nominatim returns a city, a postcode, and a
+ * state that agrees with the campus's existing (already-trusted) state --
+ * anything less confident falls through to the next tier, and if every tier
+ * fails the campus is left untouched and logged to
+ * scripts/output/regeocode-review.json (with all attempted queries/reasons)
+ * for manual follow-up. `state` itself is never overwritten: Malaysia's
+ * states are public administrative geography, not Places "Content", and the
+ * existing value is already validated -- only
+ * address/city/postcode/latitude/longitude change.
  *
  * Respects Nominatim's usage policy: max 1 request/second, a descriptive
- * User-Agent, no parallel requests.
+ * User-Agent, no parallel requests -- note this means a campus that falls
+ * through to tier 3 costs up to 3x the requests of a tier-1 match.
  * https://operations.osmfoundation.org/policies/nominatim/
  */
 import fs from 'node:fs';
@@ -72,6 +81,17 @@ function normalizeState(raw: string): string | null {
   return null;
 }
 
+// Nominatim frequently omits `address.state` entirely for Federal Territory
+// results (a KL/Labuan/Putrajaya match often has `city` + `postcode` but no
+// `state` key at all) -- without this, every otherwise-good FT match would
+// fail the state-match confidence check. ISO 3166-2:MY codes are always
+// present when available and reliably identify the three FTs.
+const ISO_STATE_CODES: Record<string, string> = {
+  'MY-14': 'W.P. Kuala Lumpur',
+  'MY-15': 'W.P. Labuan',
+  'MY-16': 'W.P. Putrajaya',
+};
+
 interface NominatimResult {
   lat: string;
   lon: string;
@@ -105,7 +125,8 @@ async function geocode(query: string): Promise<GeocodeResult | null> {
 
   const addr = top.address ?? {};
   const city = addr.city ?? addr.town ?? addr.municipality ?? addr.village ?? addr.suburb ?? null;
-  const rawState = addr.state ?? null;
+  const isoCode = addr['ISO3166-2-lvl4'];
+  const rawState = addr.state ?? (isoCode ? ISO_STATE_CODES[isoCode] : undefined) ?? null;
 
   return {
     address: top.display_name,
@@ -117,10 +138,102 @@ async function geocode(query: string): Promise<GeocodeResult | null> {
   };
 }
 
-interface ReviewEntry {
-  campusId: string;
+interface QueryAttempt {
+  tier: string;
   query: string;
   reason: string;
+}
+
+interface ReviewEntry {
+  campusId: string;
+  attempts: QueryAttempt[];
+}
+
+interface ResolvedLocation {
+  result: GeocodeResult;
+  query: string;
+  tier: string;
+}
+
+/** Federal Territories are stored internally as "W.P. Kuala Lumpur" etc. so
+    they sort/group with the other states, but Nominatim doesn't recognize
+    "W.P." as part of the place name and silently returns zero results for
+    it -- strip it for outbound query text only. The confidence check still
+    compares against the full "W.P. ..." value via normalizeState(), which
+    already maps Nominatim's plain "Kuala Lumpur" response back to it. */
+function queryStateLabel(state: string): string {
+  return state.startsWith('W.P. ') ? state.slice('W.P. '.length) : state;
+}
+
+function buildQueryTiers(
+  university: { name: string },
+  campus: { name: string; city: string; state: string },
+): Array<{ tier: string; query: string }> {
+  const stateLabel = queryStateLabel(campus.state);
+  const campusLabel = /main campus/i.test(campus.name) ? '' : ` ${campus.name}`;
+  const tiers = [{ tier: 'exact', query: `${university.name}${campusLabel}, ${stateLabel}, Malaysia` }];
+
+  // Only worth trying "university name alone" if it differs from tier 1 --
+  // for a "Main Campus" record campusLabel is already empty, so it wouldn't.
+  if (campusLabel) {
+    tiers.push({
+      tier: 'university-only',
+      query: `${university.name}, ${stateLabel}, Malaysia`,
+    });
+  }
+
+  // Where the city and state share a name (state capitals, and every
+  // Federal Territory campus since W.P. Kuala Lumpur/Labuan/Putrajaya's
+  // "city" is the territory itself), "X, X, Malaysia" trips Nominatim into
+  // matching an unrelated point feature literally named X (e.g. a railway
+  // station) instead of the place -- mention it once instead.
+  const cityFallbackQuery =
+    campus.city.trim().toLowerCase() === stateLabel.trim().toLowerCase()
+      ? `${campus.city}, Malaysia`
+      : `${campus.city}, ${stateLabel}, Malaysia`;
+  tiers.push({ tier: 'city-fallback', query: cityFallbackQuery });
+
+  return tiers;
+}
+
+/** Tries each query tier in order (respecting Nominatim's rate limit between
+    every request, including failed ones) until one clears the confidence
+    bar, or all of them are exhausted. */
+async function resolveCampus(
+  university: { name: string },
+  campus: { name: string; city: string; state: string },
+): Promise<{ resolved: ResolvedLocation; attempts: QueryAttempt[] } | { resolved: null; attempts: QueryAttempt[] }> {
+  const attempts: QueryAttempt[] = [];
+
+  for (const { tier, query } of buildQueryTiers(university, campus)) {
+    const result = await geocode(query);
+    await sleep(MIN_INTERVAL_MS);
+
+    if (!result) {
+      attempts.push({ tier, query, reason: 'no Nominatim match' });
+      continue;
+    }
+    if (!result.city || !result.postcode) {
+      attempts.push({
+        tier,
+        query,
+        reason: `missing city/postcode in result: ${JSON.stringify(result)}`,
+      });
+      continue;
+    }
+    if (result.state !== campus.state) {
+      attempts.push({
+        tier,
+        query,
+        reason: `existing state "${campus.state}" vs Nominatim state "${result.state}"`,
+      });
+      continue;
+    }
+
+    return { resolved: { result, query, tier }, attempts };
+  }
+
+  return { resolved: null, attempts };
 }
 
 async function main(): Promise<void> {
@@ -159,36 +272,15 @@ async function main(): Promise<void> {
     const campus = campusSchema.parse(JSON.parse(fs.readFileSync(campusPath, 'utf8')));
     const university = loadUniversity(campus.university_id);
 
-    const campusLabel = /main campus/i.test(campus.name) ? '' : ` ${campus.name}`;
-    const query = `${university.name}${campusLabel}, ${campus.state}, Malaysia`;
+    const { resolved, attempts } = await resolveCampus(university, campus);
 
-    const result = await geocode(query);
-    await sleep(MIN_INTERVAL_MS);
-
-    if (!result) {
-      console.log(`[no match]    ${campus.id}`);
-      review.push({ campusId: campus.id, query, reason: 'no Nominatim match' });
-      continue;
-    }
-    if (!result.city || !result.postcode) {
-      console.log(`[low conf]    ${campus.id}`);
-      review.push({
-        campusId: campus.id,
-        query,
-        reason: `missing city/postcode in result: ${JSON.stringify(result)}`,
-      });
-      continue;
-    }
-    if (result.state !== campus.state) {
-      console.log(`[state mismatch] ${campus.id}`);
-      review.push({
-        campusId: campus.id,
-        query,
-        reason: `existing state "${campus.state}" vs Nominatim state "${result.state}"`,
-      });
+    if (!resolved) {
+      console.log(`[no match]    ${campus.id} (tried ${attempts.length} ${attempts.length === 1 ? 'query' : 'queries'})`);
+      review.push({ campusId: campus.id, attempts });
       continue;
     }
 
+    const { result, tier } = resolved;
     const updatedCampus = {
       ...campus,
       address: result.address,
@@ -203,8 +295,14 @@ async function main(): Promise<void> {
       console.log(`[invalid]     ${campus.id}`);
       review.push({
         campusId: campus.id,
-        query,
-        reason: `schema validation failed after update: ${check.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')}`,
+        attempts: [
+          ...attempts,
+          {
+            tier,
+            query: resolved.query,
+            reason: `schema validation failed after update: ${check.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')}`,
+          },
+        ],
       });
       continue;
     }
@@ -212,7 +310,7 @@ async function main(): Promise<void> {
     if (!dryRun) {
       fs.writeFileSync(campusPath, JSON.stringify(check.data, null, 2) + '\n');
     }
-    console.log(`[updated]     ${campus.id}`);
+    console.log(`[updated:${tier}] ${campus.id}`);
     updated++;
   }
 

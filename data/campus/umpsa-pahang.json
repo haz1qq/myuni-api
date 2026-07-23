@@ -3,11 +3,9 @@
   "university_id": "umpsa",
   "name": "Pahang Campus",
   "state": "Pahang",
-  "city": "Kuantan",
-  "postcode": "26300",
-  "address": "Universiti Malaysia Pahang Al Sultan Abdullah, Lbh Persiaran Tun Khalil Yaakob, Kampung Melayu Gambang, 26300 Kuantan, Pahang, Malaysia",
-  "latitude": 3.722359,
-  "longitude":  103.122908
+  "city": "Kampung Marhum",
+  "postcode": "26600",
+  "address": "Universiti Malaysia Pahang Al-Sultan Abdullah (Kampus Pekan), Jalan Kuala Pahang - Tanah Putih, Kampung Marhum, Pekan, Pahang, 26600, Malaysia",
+  "latitude": 3.540057,
+  "longitude": 103.4321821
 }
-
-

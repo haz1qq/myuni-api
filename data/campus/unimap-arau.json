@@ -3,11 +3,9 @@
   "university_id": "unimap",
   "name": "Main Campus",
   "state": "Perlis",
-  "city": "Arau",
-  "postcode": "02600",
-  "address": "Universiti Malaysia Perlis (UniMAP), 02600 Arau, Perlis, Malaysia",
-  "latitude": 6.447338,
-  "longitude": 100.245175
+  "city": "Kangar",
+  "postcode": "02800",
+  "address": "Arau, Kangar, Perlis, 02800, Malaysia",
+  "latitude": 6.4307281,
+  "longitude": 100.2718795
 }
-
-

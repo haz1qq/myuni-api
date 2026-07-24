@@ -19,18 +19,10 @@ function escapeHtml(value: string): string {
 // Polytechnic, Community College) get real data in a future scrape.
 const CATEGORY_ORDER = ['IPTA', 'IPTS', 'Polytechnic', 'Community College', 'MARA College'];
 
-// Malaysia is 13 states + 3 Federal Territories (Kuala Lumpur, Labuan,
-// Putrajaya) = 16 divisions total, not 14. The API's `state` field keeps the
-// existing "W.P. X" enum values (no breaking change to /api/campus?state=...
-// or the data files) -- this is a display-only label used in the landing
-// page UI so Federal Territories read correctly instead of being lumped in
-// as if they were ordinary states.
-const FEDERAL_TERRITORIES = new Set<MalaysianState>([
-  'W.P. Kuala Lumpur',
-  'W.P. Labuan',
-  'W.P. Putrajaya',
-]);
-
+// The API's `state` field keeps the existing "W.P. X" enum values (no
+// breaking change to /api/campus?state=... or the data files) -- this is a
+// display-only label used in the landing page UI so Federal Territories read
+// correctly instead of being lumped in as if they were ordinary states.
 function stateLabel(state: MalaysianState): string {
   switch (state) {
     case 'W.P. Kuala Lumpur':
@@ -78,11 +70,6 @@ export function renderLanding(_req: Request, res: Response): void {
     stateLabels[state] = stateLabel(state);
   }
 
-  const coveredStates = new Set(campuses.map((campus) => campus.state));
-  const realStates = MALAYSIAN_STATES.filter((s) => !FEDERAL_TERRITORIES.has(s));
-  const statesCovered = realStates.filter((s) => coveredStates.has(s)).length;
-  const territoriesCovered = [...FEDERAL_TERRITORIES].filter((s) => coveredStates.has(s)).length;
-
   const statesByUniversity = new Map<string, Set<MalaysianState>>();
   const campusesByUniversity = new Map<string, Campus[]>();
   for (const campus of campuses) {
@@ -110,6 +97,32 @@ export function renderLanding(_req: Request, res: Response): void {
     }));
 
   const presentCategories = CATEGORY_ORDER.filter((cat) => directory.some((u) => u.cat === cat));
+
+  // IPTA and IPTS are both conventionally "universities" in everyday usage;
+  // Polytechnic/Community College/MARA College are distinct TVET institution
+  // types. All four live inside one breakdown card rather than one top-level
+  // card each; a row only appears once its category actually has data, same
+  // rule as presentCategories above.
+  const categoryCounts: Record<string, number> = {};
+  for (const u of directory) {
+    categoryCounts[u.cat] = (categoryCounts[u.cat] ?? 0) + 1;
+  }
+  const universityCount = (categoryCounts.IPTA ?? 0) + (categoryCounts.IPTS ?? 0);
+
+  // Campuses joins the same row as a trailing, visually-separated entry
+  // (divider: true) rather than a category -- it's not one, but it belongs
+  // in this card, not floating alone in its own tile.
+  const breakdown: { label: string; value: number; divider?: boolean }[] = [
+    { label: 'Universities', value: universityCount },
+    ...(categoryCounts.Polytechnic ? [{ label: 'Polytechnics', value: categoryCounts.Polytechnic }] : []),
+    ...(categoryCounts['Community College']
+      ? [{ label: 'Community Colleges', value: categoryCounts['Community College'] }]
+      : []),
+    ...(categoryCounts['MARA College']
+      ? [{ label: 'MARA Colleges', value: categoryCounts['MARA College'] }]
+      : []),
+    { label: 'Campuses', value: campuses.length, divider: true },
+  ];
 
   const statePathsMarkup = MALAYSIAN_STATES.map((state) => {
     const counts = stateCounts[state];
@@ -251,7 +264,54 @@ export function renderLanding(_req: Request, res: Response): void {
       box-shadow: var(--shadow);
     }
     .stat .label { color: var(--text-secondary); font-size: 0.85rem; display: block; }
-    .stat .value { font-size: 1.7rem; font-weight: 600; display: block; }
+    .stat .value { font-size: 1.7rem; font-weight: 600; display: block; font-variant-numeric: tabular-nums; }
+    .stat-breakdown {
+      grid-column: 1 / -1;
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      padding: 1.6rem 1.9rem 1.75rem;
+    }
+    .stat-breakdown > h2 {
+      margin: 0;
+      color: var(--text);
+      font-size: 1.15rem;
+      font-weight: 600;
+    }
+    .stat-breakdown .breakdown-list {
+      list-style: none;
+      margin: 1rem 0 0;
+      padding: 0;
+      display: flex;
+      flex-wrap: wrap;
+      row-gap: 1.5rem;
+      column-gap: 2.5rem;
+    }
+    .stat-breakdown .breakdown-list li {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .stat-breakdown .breakdown-list li.divider {
+      padding-left: 2.5rem;
+      border-left: 1px solid var(--border);
+    }
+    .stat-breakdown .breakdown-label {
+      color: var(--text-secondary);
+      font-size: 0.88rem;
+      font-weight: 500;
+    }
+    .stat-breakdown .breakdown-value {
+      color: var(--accent);
+      font-weight: 800;
+      font-size: 2.35rem;
+      line-height: 1.05;
+      font-variant-numeric: tabular-nums;
+    }
+    @media (max-width: 640px) {
+      .stat-breakdown .breakdown-value { font-size: 1.9rem; }
+      .stat-breakdown .breakdown-list { column-gap: 1.75rem; }
+      .stat-breakdown .breakdown-list li.divider { padding-left: 1.75rem; }
+    }
     .panel {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -770,21 +830,18 @@ export function renderLanding(_req: Request, res: Response): void {
         </a>
       </p>
       <div class="stats">
-        <div class="stat">
-          <span class="label">Universities</span>
-          <span class="value">${universities.length}</span>
-        </div>
-        <div class="stat">
-          <span class="label">Campuses</span>
-          <span class="value">${campuses.length}</span>
-        </div>
-        <div class="stat">
-          <span class="label">States covered</span>
-          <span class="value">${statesCovered}/${realStates.length}</span>
-        </div>
-        <div class="stat">
-          <span class="label">Territories covered</span>
-          <span class="value">${territoriesCovered}/${FEDERAL_TERRITORIES.size}</span>
+        <div class="stat stat-breakdown">
+          <h2>By category</h2>
+          <ul class="breakdown-list">
+            ${breakdown
+              .map(
+                (b) => `<li${b.divider ? ' class="divider"' : ''}>
+              <span class="breakdown-label">${escapeHtml(b.label)}</span>
+              <span class="breakdown-value" data-count="${b.value}">0</span>
+            </li>`,
+              )
+              .join('\n            ')}
+          </ul>
         </div>
       </div>
     </header>
@@ -1841,10 +1898,41 @@ const LANDING_SCRIPT = `(function () {
     }
   });
 
+  /* ---------------- stat counters ---------------- */
+  function animateCounters() {
+    var els = Array.prototype.slice.call(document.querySelectorAll('[data-count]'));
+    if (!els.length) return;
+    var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    els.forEach(function (el, i) {
+      var target = Number(el.getAttribute('data-count'));
+      if (!isFinite(target)) return;
+      if (reduceMotion) {
+        el.textContent = target.toLocaleString();
+        return;
+      }
+      var duration = 900;
+      var delay = Math.min(i * 60, 400);
+      var start = null;
+      function step(ts) {
+        if (start === null) start = ts;
+        var t = Math.min(1, (ts - start - delay) / duration);
+        if (t < 0) {
+          requestAnimationFrame(step);
+          return;
+        }
+        var e = 1 - Math.pow(1 - t, 3);
+        el.textContent = Math.round(target * e).toLocaleString();
+        if (t < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    });
+  }
+
   /* ---------------- init ---------------- */
   clearDetail();
   renderResults();
   setEndpoint('/api/university');
+  animateCounters();
 })();
 `;
 

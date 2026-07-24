@@ -23,7 +23,7 @@ export const campusRouter = Router();
  *         schema: { type: integer, default: 1 }
  *       - in: query
  *         name: limit
- *         schema: { type: integer, default: 20 }
+ *         schema: { type: integer, default: 20, maximum: 1000 }
  *     responses:
  *       200:
  *         description: A paginated list of campuses

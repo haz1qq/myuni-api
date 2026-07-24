@@ -30,7 +30,10 @@ describe('GET /api/university', () => {
   });
 
   it('filters by state, matching universities with at least one campus there', async () => {
-    const res = await request(app).get('/api/university').query({ state: 'Kedah' });
+    // limit: 100 because this asserts filter correctness, not pagination --
+    // Kedah alone now has 25+ institutions (IPTA/IPTS/Polytechnic/Community
+    // College combined), past the default page size of 20.
+    const res = await request(app).get('/api/university').query({ state: 'Kedah', limit: 100 });
 
     expect(res.status).toBe(200);
     expect(res.body.data.some((u: { id: string }) => u.id === 'uum')).toBe(true);

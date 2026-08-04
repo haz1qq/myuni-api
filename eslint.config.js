@@ -28,6 +28,6 @@ export default [
   },
   prettier,
   {
-    ignores: ['dist/', 'node_modules/', 'coverage/', '.vercel/'],
+    ignores: ['dist/', 'node_modules/', 'coverage/', '.vercel/', 'public/'],
   },
 ];

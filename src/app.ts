@@ -8,7 +8,7 @@ import { swaggerSpec } from './docs/swagger.js';
 import { notFoundHandler } from './middleware/not-found.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { apiRateLimit } from './middleware/rate-limit.js';
-import { renderLanding, serveLandingScript } from './controllers/landing.controller.js';
+import { renderLanding } from './controllers/landing.controller.js';
 
 
 type HelmetFactory = (options?: Record<string, unknown>) => RequestHandler;
@@ -35,7 +35,6 @@ export function createApp(): Express {
   });
 
   app.get('/', renderLanding);
-  app.get('/landing.js', serveLandingScript);
 
   app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 

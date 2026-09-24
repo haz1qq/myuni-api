@@ -4,6 +4,7 @@
   "short_name": "help-academy",
   "category": "IPTS",
   "website": "http://www.help.edu.my/",
+  "student_email_domains": ["@helplive.edu.my"],
   "established": null,
   "student_range": null
 }

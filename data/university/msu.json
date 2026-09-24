@@ -4,6 +4,19 @@
   "short_name": "msu",
   "category": "IPTS",
   "website": "https://www.msu.edu.my/",
+  "student_email_domains": [
+    "@cfs.msu.edu.my",
+    "@gsm.msu.edu.my",
+    "@sgs.msu.edu.my",
+    "@fise.msu.edu.my",
+    "@shca.msu.edu.my",
+    "@ims.msu.edu.my",
+    "@fhls.msu.edu.my",
+    "@sess.msu.edu.my",
+    "@fbmp.msu.edu.my",
+    "@sp.msu.edu.my",
+    "@pgc.msu.edu.my"
+  ],
   "established": 2001,
   "student_range": "10000+"
 }

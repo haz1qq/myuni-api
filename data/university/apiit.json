@@ -4,6 +4,7 @@
   "short_name": "apiit",
   "category": "IPTS",
   "website": "http://apiit.edu.my/",
+  "student_email_domains": ["@mail.apu.edu.my"],
   "established": 1993,
   "student_range": "9000+"
 }

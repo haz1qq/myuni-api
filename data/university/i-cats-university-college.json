@@ -4,6 +4,7 @@
   "short_name": "i-cats-university-college",
   "category": "IPTS",
   "website": "https://icats.edu.my/2.0/",
+  "student_email_domains": ["@siswa.icats.edu.my"],
   "established": 2002,
   "student_range": null
 }

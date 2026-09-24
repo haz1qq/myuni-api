@@ -4,6 +4,7 @@
   "short_name": "universiti-help",
   "category": "IPTS",
   "website": "https://university.help.edu.my/",
+  "student_email_domains": ["@helplive.edu.my"],
   "established": 1986,
   "student_range": "10000+"
 }

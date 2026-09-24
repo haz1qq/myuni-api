@@ -4,6 +4,7 @@
   "short_name": "UMPSA",
   "category": "IPTA",
   "website": "http://www.umpsa.edu.my",
+  "student_email_domains": ["@adab.umpsa.edu.my", "@student.umpsa.edu.my"],
   "established": 2001,
   "student_range": "17000+"
 }

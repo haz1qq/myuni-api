@@ -4,6 +4,7 @@
   "short_name": "unitar-international-university",
   "category": "IPTS",
   "website": "http://www.unitar.my/",
+  "student_email_domains": ["@student.unitar.my"],
   "established": 1997,
   "student_range": "8000+"
 }

@@ -4,6 +4,7 @@
   "short_name": "heriot-watt-university-malaysia",
   "category": "IPTS",
   "website": "https://www.hw.ac.uk/malaysia",
+  "student_email_domains": ["@hw.ac.uk"],
   "established": 2012,
   "student_range": "3000+"
 }

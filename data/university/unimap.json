@@ -4,6 +4,7 @@
   "short_name": "UNIMAP",
   "category": "IPTA",
   "website": "http://www.unimap.edu.my",
+  "student_email_domains": ["@studentmail.unimap.edu.my"],
   "established": 2001,
   "student_range": "14000+"
 }

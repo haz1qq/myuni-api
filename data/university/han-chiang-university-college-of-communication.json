@@ -4,6 +4,7 @@
   "short_name": "han-chiang-university-college-of-communication",
   "category": "IPTS",
   "website": "http://www.hcu.edu.my/",
+  "student_email_domains": ["@hcu.edu.my"],
   "established": 1999,
   "student_range": "1000+"
 }

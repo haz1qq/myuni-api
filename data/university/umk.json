@@ -4,6 +4,7 @@
   "short_name": "UMK",
   "category": "IPTA",
   "website": "http://www.umk.edu.my",
+  "student_email_domains": ["@siswa.umk.edu.my"],
   "established": 2006,
   "student_range": "9000+"
 }

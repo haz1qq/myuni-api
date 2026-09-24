@@ -4,6 +4,7 @@
   "short_name": "sunway-university",
   "category": "IPTS",
   "website": "https://sunwayuniversity.edu.my/",
+  "student_email_domains": ["@imail.sunway.edu.my"],
   "established": 2004,
   "student_range": "4000+"
 }

@@ -4,6 +4,7 @@
   "short_name": "UNISZA",
   "category": "IPTA",
   "website": "https://www.unisza.edu.my/",
+  "student_email_domains": ["@putra.unisza.edu.my"],
   "established": 1980,
   "student_range": "15000+"
 }

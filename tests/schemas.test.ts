@@ -10,11 +10,44 @@ describe('universitySchema', () => {
       short_name: 'UiTM',
       category: 'IPTA',
       website: 'https://www.uitm.edu.my',
+      student_email_domains: ['@student.uitm.edu.my', '@isiswa.uitm.edu.my'],
       established: 1956,
       student_range: '170000+',
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it('defaults student email domains to null when they are unknown', () => {
+    const result = universitySchema.safeParse({
+      id: 'example-college',
+      name: 'Example College',
+      short_name: 'EC',
+      category: 'IPTS',
+      website: null,
+      established: null,
+      student_range: null,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.student_email_domains).toBeNull();
+    }
+  });
+
+  it('rejects malformed student email domains', () => {
+    const result = universitySchema.safeParse({
+      id: 'uitm',
+      name: 'Universiti Teknologi MARA',
+      short_name: 'UiTM',
+      category: 'IPTA',
+      website: 'https://www.uitm.edu.my',
+      student_email_domains: ['student.uitm.edu.my'],
+      established: 1956,
+      student_range: '170000+',
+    });
+
+    expect(result.success).toBe(false);
   });
 
   it('rejects an invalid category', () => {

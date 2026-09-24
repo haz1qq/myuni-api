@@ -4,6 +4,7 @@
   "short_name": "UiTM",
   "category": "IPTA",
   "website": "https://www.uitm.edu.my",
+  "student_email_domains": ["@student.uitm.edu.my", "@isiswa.uitm.edu.my"],
   "established": 1956,
   "student_range": "170000+"
 }

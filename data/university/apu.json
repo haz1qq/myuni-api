@@ -4,6 +4,7 @@
   "short_name": "APU",
   "category": "IPTS",
   "website": "https://www.apu.edu.my",
+  "student_email_domains": ["@mail.apu.edu.my"],
   "established": 1993,
   "student_range": "15000+"
 }

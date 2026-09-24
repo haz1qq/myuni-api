@@ -4,6 +4,7 @@
   "short_name": "royal-college-of-surgeons-in-ireland-and-university-college-dublin-malaysia-campus",
   "category": "IPTS",
   "website": "https://www.rumc.edu.my/",
+  "student_email_domains": ["@ms.rcsiucd.edu.my", "@ms.rumc.edu.my"],
   "established": 1996,
   "student_range": null
 }

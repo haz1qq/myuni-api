@@ -4,6 +4,7 @@
   "short_name": "gmi",
   "category": "IPTS",
   "website": "http://www.gmi.edu.my/",
+  "student_email_domains": ["@student.gmi.edu.my"],
   "established": null,
   "student_range": null
 }

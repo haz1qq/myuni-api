@@ -4,6 +4,7 @@
   "short_name": "peninsula-college",
   "category": "IPTS",
   "website": "https://peninsulacollege.edu.my/",
+  "student_email_domains": ["@peninsulamalaysia.edu.my"],
   "established": null,
   "student_range": null
 }

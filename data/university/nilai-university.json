@@ -4,6 +4,7 @@
   "short_name": "nilai-university",
   "category": "IPTS",
   "website": "http://www.nilai.edu.my/",
+  "student_email_domains": ["@students.nilai.edu.my"],
   "established": 1997,
   "student_range": "12000+"
 }

@@ -4,6 +4,7 @@
   "short_name": "UMT",
   "category": "IPTA",
   "website": "http://www.umt.edu.my",
+  "student_email_domains": ["@ocean.umt.edu.my", "@pps.umt.edu.my"],
   "established": 1999,
   "student_range": "9000+"
 }

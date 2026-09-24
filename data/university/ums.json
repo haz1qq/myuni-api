@@ -4,6 +4,7 @@
   "short_name": "UMS",
   "category": "IPTA",
   "website": "http://www.ums.edu.my",
+  "student_email_domains": ["@student.ums.edu.my"],
   "established": 1994,
   "student_range": "25000+"
 }

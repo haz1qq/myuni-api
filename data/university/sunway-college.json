@@ -4,6 +4,7 @@
   "short_name": "sunway-college",
   "category": "IPTS",
   "website": null,
+  "student_email_domains": ["@imail.sunway.edu.my"],
   "established": null,
   "student_range": null
 }

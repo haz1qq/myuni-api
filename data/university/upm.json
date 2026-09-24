@@ -4,6 +4,7 @@
   "short_name": "UPM",
   "category": "IPTA",
   "website": "https://upm.edu.my/",
+  "student_email_domains": ["@student.upm.edu.my"],
   "established": 1971,
   "student_range": "30000+"
 }

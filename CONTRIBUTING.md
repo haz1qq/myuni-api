@@ -32,6 +32,7 @@ Each university is one file, `data/university/<id>.json`:
   "short_name": "UiTM",
   "category": "IPTA",
   "website": "https://www.uitm.edu.my",
+  "student_email_domains": ["@student.uitm.edu.my", "@isiswa.uitm.edu.my"],
   "established": 1956,
   "student_range": "170000+"
 }
@@ -44,9 +45,13 @@ Each university is one file, `data/university/<id>.json`:
 | `short_name`    | yes      | common abbreviation, e.g. `UiTM`                                       |
 | `category`      | yes      | one of `IPTA`, `IPTS`, `Polytechnic`, `Community College`, `MARA College` |
 | `website`       | no       | full URL, or `null` if unknown                                        |
+| `student_email_domains` | no | array of domains including `@`, or `null` if unverified             |
 | `established`   | no       | founding year, or `null` if unknown — don't guess                     |
 | `student_range` | no       | e.g. `"170000+"`, or `null` if unknown — don't guess                  |
 | `description`   | no       | short free-text description                                           |
+
+Only add a student email domain when an official institution source shows an actual student email
+address. Do not infer it from the website domain, a staff address, or a webmail/login hostname.
 
 Each campus is one file, `data/campus/<id>.json`, and points back at its university:
 

@@ -4,6 +4,7 @@
   "short_name": "UKM",
   "category": "IPTA",
   "website": "http://www.ukm.my",
+  "student_email_domains": ["@siswa.ukm.edu.my"],
   "established": 1970,
   "student_range": "40000+"
 }

@@ -4,6 +4,7 @@
   "short_name": "UTeM",
   "category": "IPTA",
   "website": "https://www.utem.edu.my",
+  "student_email_domains": ["@student.utem.edu.my"],
   "established": 2000,
   "student_range": "18000+"
 }

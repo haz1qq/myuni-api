@@ -4,6 +4,7 @@
   "short_name": "new-era-university-college",
   "category": "IPTS",
   "website": "https://www.newera.edu.my/",
+  "student_email_domains": ["@e.newera.edu.my"],
   "established": 1997,
   "student_range": "2000+"
 }

@@ -4,6 +4,7 @@
   "short_name": "UNIMAS",
   "category": "IPTA",
   "website": "http://www.unimas.myy",
+  "student_email_domains": ["@siswa.unimas.my"],
   "established": 1992,
   "student_range": "19000+"
 }

@@ -4,6 +4,7 @@
   "short_name": "TU",
   "category": "IPTS",
   "website": "https://university.taylors.edu.my/",
+  "student_email_domains": ["@sd.taylors.edu.my"],
   "established": 2006,
   "student_range": "10000+"
 }

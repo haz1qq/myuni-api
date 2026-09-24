@@ -4,6 +4,7 @@
   "short_name": "university-of-wollongong-malaysia",
   "category": "IPTS",
   "website": "https://www.uow.edu.my/",
+  "student_email_domains": ["@student.uow.edu.my"],
   "established": 1983,
   "student_range": "5000+"
 }

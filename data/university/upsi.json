@@ -4,6 +4,7 @@
   "short_name": "UPSI",
   "category": "IPTA",
   "website": "https://www.upsi.edu.my/",
+  "student_email_domains": ["@siswa.upsi.edu.my"],
   "established": 1997,
   "student_range": "25000+"
 }

@@ -17,7 +17,7 @@ export class DataIntegrityError extends Error {
 
 function loadJsonDirectory<T extends { id: string }>(
   dirPath: string,
-  schema: z.ZodType<T>,
+  schema: z.ZodType<T, z.ZodTypeDef, unknown>,
 ): T[] {
   if (!fs.existsSync(dirPath)) {
     throw new DataIntegrityError([`Data directory not found: ${dirPath}`]);

@@ -4,6 +4,7 @@
   "short_name": "swinburne-university-of-technology-sarawak-campus",
   "category": "IPTS",
   "website": "https://www.swinburne.edu.my/",
+  "student_email_domains": ["@students.swinburne.edu.my"],
   "established": 2000,
   "student_range": "4000+"
 }

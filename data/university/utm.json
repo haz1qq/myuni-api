@@ -4,6 +4,7 @@
   "short_name": "UTM",
   "category": "IPTA",
   "website": "https://www.utm.my/",
+  "student_email_domains": ["@graduate.utm.my", "@live.utm.my"],
   "established": 1972,
   "student_range": "30000+"
 }

@@ -101,13 +101,17 @@ Each university lives in its own file under `data/university/<id>.json`:
   "short_name": "UiTM",
   "category": "IPTA",
   "website": "https://www.uitm.edu.my",
+  "student_email_domains": ["@student.uitm.edu.my", "@isiswa.uitm.edu.my"],
   "established": 1956,
   "student_range": "170000+"
 }
 ```
 
-`website`, `established`, and `student_range` are nullable — set to `null` rather than guessed
-when the value isn't known.
+`website`, `student_email_domains`, `established`, and `student_range` are nullable — set them to
+`null` rather than guessing when a value isn't known. `student_email_domains` is an array because
+some institutions issue separate addresses for Google and Microsoft services. Values include the
+leading `@`. The IPTA research evidence is recorded in
+[`docs/student-email-domains.md`](./docs/student-email-domains.md).
 
 Each campus lives in its own file under `data/campus/<id>.json`, and references its parent
 university by `university_id`:
